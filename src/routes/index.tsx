@@ -7,7 +7,7 @@ import {
   submitUserReport,
   type UserReport,
 } from "@/lib/reports";
-import { assessRisk } from "@/lib/risk";
+import { assessRisk, VEHICLE_RISK } from "@/lib/risk";
 import RiskPanel from "@/components/RiskPanel";
 import ClaimGuide from "@/components/ClaimGuide";
 
@@ -29,6 +29,7 @@ export const Route = createFileRoute("/")({
 
 const TORONTO: [number, number] = [43.6532, -79.3832];
 const RADII = [1, 3, 5] as const;
+const VEHICLE_DEFAULT_IDX = VEHICLE_RISK.length - 1; // "Other / Not listed"
 
 function Index() {
   const [mounted, setMounted] = useState(false);
@@ -98,7 +99,7 @@ function Index() {
   }, [inRadius]);
 
   const risk = useMemo(
-    () => assessRisk(thefts, center, radius, VEHICLE_MULTIPLIERS[vehicleIdx]),
+    () => assessRisk(thefts, center, radius, VEHICLE_RISK[vehicleIdx].multiplier),
     [thefts, center, radius, vehicleIdx]
   );
 
