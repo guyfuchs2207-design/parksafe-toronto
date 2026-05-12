@@ -1,7 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, lazy, Suspense } from "react";
-import { Search, MapPin, AlertTriangle, TrendingUp, Loader2, Shield, X } from "lucide-react";
+import { Search, MapPin, AlertTriangle, TrendingUp, Loader2, Shield, X, Plus, Send, Users } from "lucide-react";
 import { fetchRecentThefts, geocode, distanceKm, type Theft } from "@/lib/thefts";
+import {
+  fetchUserReports,
+  submitUserReport,
+  type UserReport,
+} from "@/lib/reports";
 
 const TheftMap = lazy(() => import("@/components/TheftMap"));
 
@@ -25,6 +30,7 @@ const RADII = [1, 3, 5] as const;
 function Index() {
   const [mounted, setMounted] = useState(false);
   const [thefts, setThefts] = useState<Theft[]>([]);
+  const [userReports, setUserReports] = useState<UserReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [center, setCenter] = useState<[number, number]>(TORONTO);
@@ -35,12 +41,21 @@ function Index() {
   const [searchLabel, setSearchLabel] = useState<string | null>(null);
   const [selected, setSelected] = useState<Theft | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    fetchRecentThefts()
-      .then((data) => setThefts(data))
-      .catch((e) => setError(e.message))
+    Promise.all([
+      fetchRecentThefts().catch((e) => {
+        setError(e.message);
+        return [] as Theft[];
+      }),
+      fetchUserReports().catch(() => [] as UserReport[]),
+    ])
+      .then(([t, r]) => {
+        setThefts(t);
+        setUserReports(r);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -50,6 +65,14 @@ function Index() {
         .filter((t) => distanceKm(center, [t.lat, t.lng]) <= radius)
         .sort((a, b) => b.occDate - a.occDate),
     [thefts, center, radius]
+  );
+
+  const reportsInRadius = useMemo(
+    () =>
+      userReports
+        .filter((r) => distanceKm(center, [r.lat, r.lng]) <= radius)
+        .sort((a, b) => b.occurredAt - a.occurredAt),
+    [userReports, center, radius]
   );
 
   const stats = useMemo(() => {
@@ -88,6 +111,10 @@ function Index() {
     } finally {
       setSearching(false);
     }
+  }
+
+  function handleReportAdded(r: UserReport) {
+    setUserReports((prev) => [r, ...prev]);
   }
 
   return (
@@ -152,7 +179,8 @@ function Index() {
             <TheftMap
               center={center}
               radiusKm={radius}
-              thefts={thefts}
+              thefts={inRadius}
+              userReports={reportsInRadius}
               searchPin={pin}
               onSelect={(t) => {
                 setSelected(t);
@@ -226,17 +254,39 @@ function Index() {
             </div>
           )}
 
-          {!loading && inRadius.length > 0 && (
-            <button
-              onClick={() => {
-                setSelected(inRadius[0]);
-                setDrawerOpen(true);
-              }}
-              className="mt-3 w-full rounded-xl border border-border bg-muted py-2 text-xs font-medium text-foreground transition hover:bg-muted/70"
-            >
-              View {inRadius.length} incident{inRadius.length === 1 ? "" : "s"}
-            </button>
+          {reportsInRadius.length > 0 && (
+            <div className="mt-3 flex items-center gap-2 rounded-xl border border-border bg-background/40 p-2.5 text-xs">
+              <Users className="h-3.5 w-3.5 text-accent" />
+              <span className="text-muted-foreground">
+                {reportsInRadius.length} community report
+                {reportsInRadius.length === 1 ? "" : "s"} nearby
+              </span>
+            </div>
           )}
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {!loading && inRadius.length > 0 ? (
+              <button
+                onClick={() => {
+                  setSelected(inRadius[0]);
+                  setDrawerOpen(true);
+                }}
+                className="rounded-xl border border-border bg-muted py-2 text-xs font-medium text-foreground transition hover:bg-muted/70"
+              >
+                View {inRadius.length}
+              </button>
+            ) : (
+              <div className="rounded-xl border border-border bg-muted/40 py-2 text-center text-xs text-muted-foreground">
+                No incidents
+              </div>
+            )}
+            <button
+              onClick={() => setReportOpen(true)}
+              className="flex items-center justify-center gap-1 rounded-xl bg-accent py-2 text-xs font-medium text-accent-foreground transition hover:opacity-90"
+            >
+              <Plus className="h-3.5 w-3.5" /> Report
+            </button>
+          </div>
 
           <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">
             Locations offset to nearest intersection. Source: Toronto Police Service Public Safety
@@ -244,6 +294,18 @@ function Index() {
           </p>
         </div>
       </aside>
+
+      {reportOpen && (
+        <ReportDialog
+          defaultLocation={center}
+          defaultLabel={searchLabel}
+          onClose={() => setReportOpen(false)}
+          onSubmitted={(r) => {
+            handleReportAdded(r);
+            setReportOpen(false);
+          }}
+        />
+      )}
 
       {/* Detail drawer */}
       {drawerOpen && (
