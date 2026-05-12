@@ -125,6 +125,7 @@ export default function TheftMap({ center, radiusKm, thefts, userReports, search
         }}
       />
       {markers}
+      {reportMarkers}
     </MapContainer>
   );
 }
