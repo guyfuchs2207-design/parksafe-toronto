@@ -415,3 +415,185 @@ function MapSkeleton() {
     </div>
   );
 }
+
+const OFFENCE_OPTIONS = [
+  "Theft Of Motor Vehicle",
+  "Attempted Theft",
+  "Theft From Motor Vehicle",
+  "Vehicle Vandalism",
+];
+
+const LOCATION_OPTIONS = [
+  "Street / Road",
+  "Parking Lot",
+  "Driveway",
+  "Apartment Garage",
+  "House (Garage)",
+  "Other",
+];
+
+function ReportDialog({
+  defaultLocation,
+  defaultLabel,
+  onClose,
+  onSubmitted,
+}: {
+  defaultLocation: [number, number];
+  defaultLabel: string | null;
+  onClose: () => void;
+  onSubmitted: (r: UserReport) => void;
+}) {
+  const [offence, setOffence] = useState(OFFENCE_OPTIONS[0]);
+  const [locationType, setLocationType] = useState(LOCATION_OPTIONS[0]);
+  const [description, setDescription] = useState("");
+  const [when, setWhen] = useState(() => {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    setErr(null);
+    try {
+      const r = await submitUserReport({
+        lat: defaultLocation[0],
+        lng: defaultLocation[1],
+        offence,
+        locationType,
+        description: description.trim() || undefined,
+        occurredAt: new Date(when),
+      });
+      onSubmitted(r);
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to submit report.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <>
+      <div
+        className="absolute inset-0 z-[1300] bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="absolute left-1/2 top-1/2 z-[1400] w-[92%] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-5 shadow-2xl">
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Community report
+            </div>
+            <h2 className="text-base font-semibold">Report a vehicle theft</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Pinned to {defaultLabel ?? "current map center"}. Move the map to relocate.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <Field label="What happened?">
+            <select
+              value={offence}
+              onChange={(e) => setOffence(e.target.value)}
+              className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm focus:border-ring focus:outline-none"
+            >
+              {OFFENCE_OPTIONS.map((o) => (
+                <option key={o} value={o}>{o}</option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Where">
+            <select
+              value={locationType}
+              onChange={(e) => setLocationType(e.target.value)}
+              className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm focus:border-ring focus:outline-none"
+            >
+              {LOCATION_OPTIONS.map((o) => (
+                <option key={o} value={o}>{o}</option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="When">
+            <input
+              type="datetime-local"
+              value={when}
+              onChange={(e) => setWhen(e.target.value)}
+              className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm focus:border-ring focus:outline-none"
+            />
+          </Field>
+
+          <Field label="Details (optional)">
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value.slice(0, 500))}
+              rows={3}
+              placeholder="Make/model, time of night, anything useful for neighbours…"
+              className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm focus:border-ring focus:outline-none"
+            />
+            <div className="mt-1 text-right text-[10px] text-muted-foreground">
+              {description.length}/500
+            </div>
+          </Field>
+
+          {err && (
+            <div className="rounded-lg border border-danger/30 bg-danger/10 p-2 text-xs text-danger">
+              {err}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-xl border border-border bg-muted py-2.5 text-sm font-medium hover:bg-muted/70"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+            >
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <Send className="h-3.5 w-3.5" /> Submit
+                </>
+              )}
+            </button>
+          </div>
+
+          <p className="text-[10px] leading-relaxed text-muted-foreground">
+            Reports are public and unverified. Always file an official report with Toronto Police
+            (call 416-808-2222 or visit torontopolice.on.ca).
+          </p>
+        </form>
+      </div>
+    </>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      {children}
+    </label>
+  );
+}
