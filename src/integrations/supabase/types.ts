@@ -14,7 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      user_reports: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          lat: number
+          lng: number
+          location_type: string
+          neighbourhood: string
+          occurred_at: string
+          offence: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          lat: number
+          lng: number
+          location_type?: string
+          neighbourhood?: string
+          occurred_at?: string
+          offence?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          lat?: number
+          lng?: number
+          location_type?: string
+          neighbourhood?: string
+          occurred_at?: string
+          offence?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
