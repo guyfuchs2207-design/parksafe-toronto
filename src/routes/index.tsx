@@ -7,6 +7,9 @@ import {
   submitUserReport,
   type UserReport,
 } from "@/lib/reports";
+import { assessRisk } from "@/lib/risk";
+import RiskPanel from "@/components/RiskPanel";
+import ClaimGuide from "@/components/ClaimGuide";
 
 const TheftMap = lazy(() => import("@/components/TheftMap"));
 
@@ -42,6 +45,8 @@ function Index() {
   const [selected, setSelected] = useState<Theft | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [vehicleIdx, setVehicleIdx] = useState(VEHICLE_DEFAULT_IDX);
+  const [claimOpen, setClaimOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -91,6 +96,11 @@ function Index() {
         : Math.round(((last30 - prev30) / prev30) * 100);
     return { count, recent, last30, trend };
   }, [inRadius]);
+
+  const risk = useMemo(
+    () => assessRisk(thefts, center, radius, VEHICLE_MULTIPLIERS[vehicleIdx]),
+    [thefts, center, radius, vehicleIdx]
+  );
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -293,7 +303,28 @@ function Index() {
             Data Portal.
           </p>
         </div>
+
+        {!loading && (
+          <div className="mt-3">
+            <RiskPanel
+              risk={risk}
+              locationLabel={searchLabel ?? "Downtown Toronto"}
+              radiusKm={radius}
+              vehicleIdx={vehicleIdx}
+              onVehicleChange={setVehicleIdx}
+              onOpenClaim={() => setClaimOpen(true)}
+            />
+          </div>
+        )}
       </aside>
+
+      {claimOpen && (
+        <ClaimGuide
+          onClose={() => setClaimOpen(false)}
+          defaultVehicleIdx={vehicleIdx}
+          locationLabel={searchLabel ?? "Downtown Toronto"}
+        />
+      )}
 
       {reportOpen && (
         <ReportDialog
