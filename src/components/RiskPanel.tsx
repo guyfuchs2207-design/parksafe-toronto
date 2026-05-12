@@ -45,7 +45,7 @@ export default function RiskPanel({
   const v = VEHICLE_RISK[vehicleIdx];
   const vehicleLabel =
     v.multiplier > 1 ? `${v.make} ${v.model}`.trim() : undefined;
-  const alert = buildPredictiveAlert(risk, vehicleLabel);
+  const alertMsg = buildPredictiveAlert(risk, vehicleLabel);
   const styles = LEVEL_STYLES[risk.level];
 
   async function share() {
@@ -55,7 +55,6 @@ export default function RiskPanel({
         await navigator.share({ title: "ParkSafe Toronto", text });
       } else {
         await navigator.clipboard.writeText(text);
-        alert && console.log("copied");
       }
     } catch {
       /* user cancelled */
@@ -95,10 +94,10 @@ export default function RiskPanel({
 
       {expanded && (
         <>
-          {alert && (
+          {alertMsg && (
             <div className="mt-3 flex items-start gap-2 rounded-xl border border-accent/40 bg-accent/10 p-3">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
-              <p className="text-xs leading-relaxed text-foreground">{alert}</p>
+              <p className="text-xs leading-relaxed text-foreground">{alertMsg}</p>
             </div>
           )}
 
