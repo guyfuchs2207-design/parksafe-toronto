@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef } from "react";
 import { MapContainer, TileLayer, CircleMarker, Circle, Popup, useMap, Marker } from "react-leaflet";
 import L from "leaflet";
 import type { Theft } from "@/lib/thefts";
+import type { UserReport } from "@/lib/reports";
 
 interface Props {
   center: [number, number];
   radiusKm: number;
   thefts: Theft[];
+  userReports: UserReport[];
   searchPin: [number, number] | null;
   onSelect: (t: Theft) => void;
 }
@@ -29,7 +31,7 @@ const pinIcon = L.divIcon({
   iconAnchor: [9, 9],
 });
 
-export default function TheftMap({ center, radiusKm, thefts, searchPin, onSelect }: Props) {
+export default function TheftMap({ center, radiusKm, thefts, userReports, searchPin, onSelect }: Props) {
   const mapRef = useRef<L.Map | null>(null);
 
   const markers = useMemo(
@@ -62,6 +64,39 @@ export default function TheftMap({ center, radiusKm, thefts, searchPin, onSelect
     [thefts, onSelect]
   );
 
+  const reportMarkers = useMemo(
+    () =>
+      userReports.map((r) => (
+        <CircleMarker
+          key={`r-${r.id}`}
+          center={[r.lat, r.lng]}
+          radius={6}
+          pathOptions={{
+            color: "oklch(0.78 0.18 70)",
+            fillColor: "oklch(0.78 0.18 70)",
+            fillOpacity: 0.85,
+            weight: 2,
+          }}
+        >
+          <Popup>
+            <div style={{ minWidth: 200 }}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                Community report · {r.offence}
+              </div>
+              <div style={{ fontSize: 12, opacity: 0.8 }}>{r.locationType}</div>
+              {r.description && (
+                <div style={{ fontSize: 12, marginTop: 6 }}>{r.description}</div>
+              )}
+              <div style={{ fontSize: 11, marginTop: 6, opacity: 0.6 }}>
+                {new Date(r.occurredAt).toLocaleString()}
+              </div>
+            </div>
+          </Popup>
+        </CircleMarker>
+      )),
+    [userReports]
+  );
+
   return (
     <MapContainer
       center={center}
@@ -90,6 +125,7 @@ export default function TheftMap({ center, radiusKm, thefts, searchPin, onSelect
         }}
       />
       {markers}
+      {reportMarkers}
     </MapContainer>
   );
 }
