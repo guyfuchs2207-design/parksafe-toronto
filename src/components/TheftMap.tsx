@@ -29,8 +29,7 @@ function HeatLayer({ points, visible }: { points: Theft[]; visible: boolean }) {
   useEffect(() => {
     if (!visible) return;
     const data = points.map((t) => [t.lat, t.lng, 0.6] as [number, number, number]);
-    // @ts-expect-error - leaflet.heat extends L
-    const layer = L.heatLayer(data, {
+    const layer = (L as any).heatLayer(data, {
       radius: 28,
       blur: 22,
       maxZoom: 17,
