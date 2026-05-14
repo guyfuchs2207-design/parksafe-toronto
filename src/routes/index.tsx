@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, lazy, Suspense } from "react";
-import { Search, MapPin, AlertTriangle, TrendingUp, Loader2, Shield, X, Plus, Send, Users } from "lucide-react";
+import { Search, MapPin, AlertTriangle, TrendingUp, Loader2, Shield, X, Plus, Send, Users, Flame, LocateFixed } from "lucide-react";
 import { fetchRecentThefts, geocode, distanceKm, type Theft } from "@/lib/thefts";
 import {
   fetchUserReports,
@@ -48,6 +48,8 @@ function Index() {
   const [reportOpen, setReportOpen] = useState(false);
   const [vehicleIdx, setVehicleIdx] = useState(VEHICLE_DEFAULT_IDX);
   const [claimOpen, setClaimOpen] = useState(false);
+  const [showHeatmap, setShowHeatmap] = useState(true);
+  const [locating, setLocating] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -124,6 +126,29 @@ function Index() {
     }
   }
 
+  function handleLocate() {
+    if (!navigator.geolocation) {
+      setError("Geolocation is not supported by your browser.");
+      return;
+    }
+    setLocating(true);
+    setError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const c: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        setCenter(c);
+        setPin(c);
+        setSearchLabel("My location");
+        setLocating(false);
+      },
+      (err) => {
+        setError(err.message || "Could not get your location.");
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
   function handleReportAdded(r: UserReport) {
     setUserReports((prev) => [r, ...prev]);
   }
@@ -163,9 +188,31 @@ function Index() {
             >
               {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
             </button>
+            <button
+              type="button"
+              onClick={handleLocate}
+              disabled={locating}
+              title="Use my location"
+              className="flex items-center justify-center rounded-xl border border-border bg-muted px-3 py-2.5 text-sm font-medium text-foreground transition hover:bg-muted/70 disabled:opacity-50"
+            >
+              {locating ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
+            </button>
           </form>
 
-          <div className="flex items-center gap-1 rounded-xl bg-muted p-1">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowHeatmap((v) => !v)}
+              title="Toggle heatmap"
+              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition ${
+                showHeatmap
+                  ? "bg-primary text-primary-foreground shadow"
+                  : "border border-border bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Flame className="h-3.5 w-3.5" /> Heat
+            </button>
+            <div className="flex items-center gap-1 rounded-xl bg-muted p-1">
             {RADII.map((r) => (
               <button
                 key={r}
@@ -179,6 +226,7 @@ function Index() {
                 {r} km
               </button>
             ))}
+            </div>
           </div>
         </div>
       </header>
@@ -191,6 +239,8 @@ function Index() {
               center={center}
               radiusKm={radius}
               thefts={inRadius}
+              allThefts={thefts}
+              showHeatmap={showHeatmap}
               userReports={reportsInRadius}
               searchPin={pin}
               onSelect={(t) => {
