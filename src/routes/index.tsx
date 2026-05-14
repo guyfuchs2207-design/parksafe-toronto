@@ -273,6 +273,17 @@ function Index() {
 
       {/* Summary card — desktop side, mobile bottom */}
       <aside className="absolute bottom-3 left-3 right-3 z-[900] sm:bottom-4 sm:right-auto sm:left-4 sm:top-28 sm:w-80">
+        {showHeatmap && (
+          <div className="mb-2 hidden rounded-xl border border-border bg-card/85 p-2.5 shadow-lg backdrop-blur sm:block">
+            <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+              Theft density
+            </div>
+            <div className="h-2 w-full rounded-full" style={{ background: "linear-gradient(90deg,#16a34a,#eab308,#f97316,#dc2626)" }} />
+            <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+              <span>Safer</span><span>Higher risk</span>
+            </div>
+          </div>
+        )}
         <div className="rounded-2xl border border-border bg-card/90 p-4 shadow-2xl backdrop-blur-xl">
           <div className="mb-3 flex items-center justify-between">
             <div>
