@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { MapContainer, TileLayer, CircleMarker, Circle, Popup, useMap, Marker } from "react-leaflet";
 import L from "leaflet";
+import "leaflet.heat";
 import type { Theft } from "@/lib/thefts";
 import type { UserReport } from "@/lib/reports";
 
@@ -11,6 +12,8 @@ interface Props {
   userReports: UserReport[];
   searchPin: [number, number] | null;
   onSelect: (t: Theft) => void;
+  showHeatmap: boolean;
+  allThefts: Theft[];
 }
 
 function Recenter({ center }: { center: [number, number] }) {
@@ -18,6 +21,31 @@ function Recenter({ center }: { center: [number, number] }) {
   useEffect(() => {
     map.flyTo(center, Math.max(map.getZoom(), 13), { duration: 0.8 });
   }, [center[0], center[1]]);
+  return null;
+}
+
+function HeatLayer({ points, visible }: { points: Theft[]; visible: boolean }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!visible) return;
+    const data = points.map((t) => [t.lat, t.lng, 0.6] as [number, number, number]);
+    // @ts-expect-error - leaflet.heat extends L
+    const layer = L.heatLayer(data, {
+      radius: 28,
+      blur: 22,
+      maxZoom: 17,
+      minOpacity: 0.35,
+      gradient: {
+        0.0: "#16a34a", // green = safe
+        0.35: "#eab308", // yellow
+        0.65: "#f97316", // orange
+        1.0: "#dc2626", // red = dangerous
+      },
+    }).addTo(map);
+    return () => {
+      map.removeLayer(layer);
+    };
+  }, [points, visible, map]);
   return null;
 }
 
@@ -31,12 +59,12 @@ const pinIcon = L.divIcon({
   iconAnchor: [9, 9],
 });
 
-export default function TheftMap({ center, radiusKm, thefts, userReports, searchPin, onSelect }: Props) {
+export default function TheftMap({ center, radiusKm, thefts, userReports, searchPin, onSelect, showHeatmap, allThefts }: Props) {
   const mapRef = useRef<L.Map | null>(null);
 
   const markers = useMemo(
     () =>
-      thefts.map((t) => (
+      (showHeatmap ? [] : thefts).map((t) => (
         <CircleMarker
           key={t.id}
           center={[t.lat, t.lng]}
@@ -113,6 +141,7 @@ export default function TheftMap({ center, radiusKm, thefts, userReports, search
       />
       <Recenter center={center} />
       {searchPin && <Marker position={searchPin} icon={pinIcon} />}
+      <HeatLayer points={allThefts} visible={showHeatmap} />
       <Circle
         center={center}
         radius={radiusKm * 1000}
