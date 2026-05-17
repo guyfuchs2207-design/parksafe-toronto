@@ -1,3 +1,4 @@
+import AuthPanel from "@/components/AuthPanel";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { Search, MapPin, AlertTriangle, TrendingUp, Loader2, Shield, X, Plus, Send, Users, Flame, LocateFixed } from "lucide-react";
@@ -50,6 +51,7 @@ function Index() {
   const [claimOpen, setClaimOpen] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [locating, setLocating] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -82,7 +84,7 @@ function Index() {
         .sort((a, b) => b.occurredAt - a.occurredAt),
     [userReports, center, radius]
   );
-
+  
   const stats = useMemo(() => {
     const count = inRadius.length;
     const recent = inRadius[0];
@@ -230,7 +232,12 @@ function Index() {
           </div>
         </div>
       </header>
-
+<button
+  onClick={() => setAuthOpen(true)}
+  className="rounded-xl border border-border bg-muted px-3 py-2 text-xs font-medium hover:bg-muted/70"
+>
+  Account
+</button>
       {/* Map */}
       <div className="absolute inset-0">
         {mounted ? (
@@ -669,7 +676,17 @@ function ReportDialog({
               )}
             </button>
           </div>
-
+{authOpen && (
+  <AuthPanel
+    onClose={() => setAuthOpen(false)}
+    onLocationSet={(lat, lng, label) => {
+      setCenter([lat, lng]);
+      setPin([lat, lng]);
+      setSearchLabel(label);
+      setAuthOpen(false);
+    }}
+  />
+)}
           <p className="text-[10px] leading-relaxed text-muted-foreground">
             Reports are public and unverified. Always file an official report with Toronto Police
             (call 416-808-2222 or visit torontopolice.on.ca).
