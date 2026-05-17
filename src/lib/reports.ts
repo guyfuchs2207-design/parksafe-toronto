@@ -1,80 +1,69 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export interface Profile {
+export interface UserReport {
   id: string;
-  email: string | null;
-  vehicleMake: string | null;
-  vehicleModel: string | null;
-  vehicleYear: number | null;
-  vehicleColour: string | null;
-  homeAddress: string | null;
-  homeLat: number | null;
-  homeLng: number | null;
-  alertsEnabled: boolean;
-  alertRadiusKm: number;
+  lat: number;
+  lng: number;
+  offence: string;
+  locationType: string;
+  neighbourhood: string;
+  description: string | null;
+  occurredAt: number;
 }
 
-export async function getProfile(): Promise<Profile | null> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-
+export async function fetchUserReports(): Promise<UserReport[]> {
   const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
+    .from("user_reports")
+    .select("id,lat,lng,offence,location_type,neighbourhood,description,occurred_at")
+    .order("occurred_at", { ascending: false })
+    .limit(1000);
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    lat: r.lat,
+    lng: r.lng,
+    offence: r.offence,
+    locationType: r.location_type,
+    neighbourhood: r.neighbourhood,
+    description: r.description,
+    occurredAt: new Date(r.occurred_at).getTime(),
+  }));
+}
+
+export interface NewReport {
+  lat: number;
+  lng: number;
+  offence: string;
+  locationType: string;
+  neighbourhood?: string;
+  description?: string;
+  occurredAt: Date;
+}
+
+export async function submitUserReport(r: NewReport): Promise<UserReport> {
+  const { data, error } = await supabase
+    .from("user_reports")
+    .insert({
+      lat: r.lat,
+      lng: r.lng,
+      offence: r.offence,
+      location_type: r.locationType,
+      neighbourhood: r.neighbourhood ?? "Toronto",
+      description: r.description ?? null,
+      occurred_at: r.occurredAt.toISOString(),
+    })
+    .select("id,lat,lng,offence,location_type,neighbourhood,description,occurred_at")
     .single();
-
-  if (error || !data) return null;
-
+  if (error) throw error;
   return {
     id: data.id,
-    email: data.email,
-    vehicleMake: data.vehicle_make,
-    vehicleModel: data.vehicle_model,
-    vehicleYear: data.vehicle_year,
-    vehicleColour: data.vehicle_colour,
-    homeAddress: data.home_address,
-    homeLat: data.home_lat,
-    homeLng: data.home_lng,
-    alertsEnabled: data.alerts_enabled,
-    alertRadiusKm: data.alert_radius_km,
+    lat: data.lat,
+    lng: data.lng,
+    offence: data.offence,
+    locationType: data.location_type,
+    neighbourhood: data.neighbourhood,
+    description: data.description,
+    occurredAt: new Date(data.occurred_at).getTime(),
   };
 }
-
-export async function upsertProfile(updates: Partial<Omit<Profile, "id">>): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not signed in");
-
-  const { error } = await supabase.from("profiles").upsert({
-    id: user.id,
-    email: updates.email,
-    vehicle_make: updates.vehicleMake,
-    vehicle_model: updates.vehicleModel,
-    vehicle_year: updates.vehicleYear,
-    vehicle_colour: updates.vehicleColour,
-    home_address: updates.homeAddress,
-    home_lat: updates.homeLat,
-    home_lng: updates.homeLng,
-    alerts_enabled: updates.alertsEnabled,
-    alert_radius_km: updates.alertRadiusKm,
-    updated_at: new Date().toISOString(),
-  });
-
-  if (error) throw error;
-}
-
-export async function signUpWithEmail(email: string, password: string) {
-  const { data, error } = await supabase.auth.signUp({ email, password });
-  if (error) throw error;
-  return data;
-}
-
-export async function signInWithEmail(email: string, password: string) {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) throw error;
-  return data;
-}
-
-export async function signOut() {
-  await supabase.auth.signOut();
 }
