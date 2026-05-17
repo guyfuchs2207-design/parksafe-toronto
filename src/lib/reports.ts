@@ -66,4 +66,3 @@ export async function submitUserReport(r: NewReport): Promise<UserReport> {
     occurredAt: new Date(data.occurred_at).getTime(),
   };
 }
-}
