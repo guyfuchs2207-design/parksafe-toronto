@@ -3,11 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { Search, MapPin, AlertTriangle, TrendingUp, Loader2, Shield, X, Plus, Send, Users, Flame, LocateFixed } from "lucide-react";
 import { fetchRecentThefts, geocode, distanceKm, type Theft } from "@/lib/thefts";
-import {
-  fetchUserReports,
-  submitUserReport,
-  type UserReport,
-} from "@/lib/reports";
+import { fetchUserReports, submitUserReport, type UserReport } from "@/lib/reports";
 import { assessRisk, VEHICLE_RISK } from "@/lib/risk";
 import RiskPanel from "@/components/RiskPanel";
 import ClaimGuide from "@/components/ClaimGuide";
@@ -19,18 +15,14 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "ParkSafe Toronto — Live Vehicle Theft Map" },
-      {
-        name: "description",
-        content:
-          "Visualize recent vehicle theft incidents across Toronto using public Toronto Police Service data. Search any address and see thefts within 1, 3, or 5 km.",
-      },
+      { name: "description", content: "Visualize recent vehicle theft incidents across Toronto using public Toronto Police Service data. Search any address and see thefts within 1, 3, or 5 km." },
     ],
   }),
 });
 
 const TORONTO: [number, number] = [43.6532, -79.3832];
 const RADII = [1, 3, 5] as const;
-const VEHICLE_DEFAULT_IDX = VEHICLE_RISK.length - 1; // "Other / Not listed"
+const VEHICLE_DEFAULT_IDX = VEHICLE_RISK.length - 1;
 
 function Index() {
   const [mounted, setMounted] = useState(false);
@@ -56,49 +48,31 @@ function Index() {
   useEffect(() => {
     setMounted(true);
     Promise.all([
-      fetchRecentThefts().catch((e) => {
-        setError(e.message);
-        return [] as Theft[];
-      }),
+      fetchRecentThefts().catch((e) => { setError(e.message); return [] as Theft[]; }),
       fetchUserReports().catch(() => [] as UserReport[]),
-    ])
-      .then(([t, r]) => {
-        setThefts(t);
-        setUserReports(r);
-      })
-      .finally(() => setLoading(false));
+    ]).then(([t, r]) => {
+      setThefts(t);
+      setUserReports(r);
+    }).finally(() => setLoading(false));
   }, []);
 
   const inRadius = useMemo(
-    () =>
-      thefts
-        .filter((t) => distanceKm(center, [t.lat, t.lng]) <= radius)
-        .sort((a, b) => b.occDate - a.occDate),
+    () => thefts.filter((t) => distanceKm(center, [t.lat, t.lng]) <= radius).sort((a, b) => b.occDate - a.occDate),
     [thefts, center, radius]
   );
 
   const reportsInRadius = useMemo(
-    () =>
-      userReports
-        .filter((r) => distanceKm(center, [r.lat, r.lng]) <= radius)
-        .sort((a, b) => b.occurredAt - a.occurredAt),
+    () => userReports.filter((r) => distanceKm(center, [r.lat, r.lng]) <= radius).sort((a, b) => b.occurredAt - a.occurredAt),
     [userReports, center, radius]
   );
-  
+
   const stats = useMemo(() => {
     const count = inRadius.length;
     const recent = inRadius[0];
     const now = Date.now();
     const last30 = inRadius.filter((t) => now - t.occDate < 30 * 86400000).length;
-    const prev30 = inRadius.filter(
-      (t) => now - t.occDate >= 30 * 86400000 && now - t.occDate < 60 * 86400000
-    ).length;
-    const trend =
-      prev30 === 0
-        ? last30 > 0
-          ? 100
-          : 0
-        : Math.round(((last30 - prev30) / prev30) * 100);
+    const prev30 = inRadius.filter((t) => now - t.occDate >= 30 * 86400000 && now - t.occDate < 60 * 86400000).length;
+    const trend = prev30 === 0 ? (last30 > 0 ? 100 : 0) : Math.round(((last30 - prev30) / prev30) * 100);
     return { count, recent, last30, trend };
   }, [inRadius]);
 
@@ -114,39 +88,26 @@ function Index() {
     setError(null);
     try {
       const r = await geocode(query.trim());
-      if (!r) {
-        setError("Address not found in Toronto.");
-      } else {
+      if (!r) { setError("Address not found in Toronto."); }
+      else {
         setCenter([r.lat, r.lng]);
         setPin([r.lat, r.lng]);
         setSearchLabel(r.label.split(",").slice(0, 2).join(","));
       }
-    } catch {
-      setError("Search failed. Try again.");
-    } finally {
-      setSearching(false);
-    }
+    } catch { setError("Search failed. Try again."); }
+    finally { setSearching(false); }
   }
 
   function handleLocate() {
-    if (!navigator.geolocation) {
-      setError("Geolocation is not supported by your browser.");
-      return;
-    }
+    if (!navigator.geolocation) { setError("Geolocation is not supported by your browser."); return; }
     setLocating(true);
     setError(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const c: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-        setCenter(c);
-        setPin(c);
-        setSearchLabel("My location");
-        setLocating(false);
+        setCenter(c); setPin(c); setSearchLabel("My location"); setLocating(false);
       },
-      (err) => {
-        setError(err.message || "Could not get your location.");
-        setLocating(false);
-      },
+      (err) => { setError(err.message || "Could not get your location."); setLocating(false); },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   }
@@ -166,9 +127,7 @@ function Index() {
             </div>
             <div className="leading-tight">
               <h1 className="text-sm font-semibold tracking-tight">ParkSafe</h1>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                Toronto
-              </p>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Toronto</p>
             </div>
           </div>
 
@@ -176,145 +135,91 @@ function Index() {
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                type="text" value={query} onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search an address or intersection…"
                 className="w-full rounded-xl border border-border bg-input py-2.5 pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
               />
             </div>
-            <button
-              type="submit"
-              disabled={searching}
-              className="rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
-            >
+            <button type="submit" disabled={searching}
+              className="rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-50">
               {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
             </button>
-            <button
-              type="button"
-              onClick={handleLocate}
-              disabled={locating}
-              title="Use my location"
-              className="flex items-center justify-center rounded-xl border border-border bg-muted px-3 py-2.5 text-sm font-medium text-foreground transition hover:bg-muted/70 disabled:opacity-50"
-            >
+            <button type="button" onClick={handleLocate} disabled={locating} title="Use my location"
+              className="flex items-center justify-center rounded-xl border border-border bg-muted px-3 py-2.5 text-sm font-medium text-foreground transition hover:bg-muted/70 disabled:opacity-50">
               {locating ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
             </button>
           </form>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowHeatmap((v) => !v)}
-              title="Toggle heatmap"
-              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition ${
-                showHeatmap
-                  ? "bg-primary text-primary-foreground shadow"
-                  : "border border-border bg-muted text-muted-foreground hover:text-foreground"
-              }`}
-            >
+            <button type="button" onClick={() => setShowHeatmap((v) => !v)} title="Toggle heatmap"
+              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition ${showHeatmap ? "bg-primary text-primary-foreground shadow" : "border border-border bg-muted text-muted-foreground hover:text-foreground"}`}>
               <Flame className="h-3.5 w-3.5" /> Heat
             </button>
             <div className="flex items-center gap-1 rounded-xl bg-muted p-1">
-            {RADII.map((r) => (
-              <button
-                key={r}
-                onClick={() => setRadius(r)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                  radius === r
-                    ? "bg-primary text-primary-foreground shadow"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {r} km
-              </button>
-            ))}
+              {RADII.map((r) => (
+                <button key={r} onClick={() => setRadius(r)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${radius === r ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
+                  {r} km
+                </button>
+              ))}
             </div>
+            {/* Account button — INSIDE header */}
+            <button onClick={() => setAuthOpen(true)}
+              className="rounded-xl border border-border bg-muted px-3 py-2 text-xs font-medium hover:bg-muted/70">
+              Account
+            </button>
           </div>
         </div>
       </header>
-<button
-  onClick={() => setAuthOpen(true)}
-  className="rounded-xl border border-border bg-muted px-3 py-2 text-xs font-medium hover:bg-muted/70"
->
-  Account
-</button>
+
       {/* Map */}
       <div className="absolute inset-0">
         {mounted ? (
           <Suspense fallback={<MapSkeleton />}>
             <TheftMap
-              center={center}
-              radiusKm={radius}
-              thefts={inRadius}
-              allThefts={thefts}
-              showHeatmap={showHeatmap}
-              userReports={reportsInRadius}
-              searchPin={pin}
-              onSelect={(t) => {
-                setSelected(t);
-                setDrawerOpen(true);
-              }}
+              center={center} radiusKm={radius} thefts={inRadius}
+              allThefts={thefts} showHeatmap={showHeatmap}
+              userReports={reportsInRadius} searchPin={pin}
+              onSelect={(t) => { setSelected(t); setDrawerOpen(true); }}
             />
           </Suspense>
-        ) : (
-          <MapSkeleton />
-        )}
+        ) : <MapSkeleton />}
       </div>
 
-      {/* Loading / error toast */}
       {(loading || error) && (
         <div className="pointer-events-none absolute left-1/2 top-28 z-[900] -translate-x-1/2">
           <div className="pointer-events-auto rounded-full border border-border bg-card/90 px-4 py-2 text-xs shadow-lg backdrop-blur">
-            {loading ? (
-              <span className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="h-3 w-3 animate-spin" /> Loading recent theft data…
-              </span>
-            ) : (
-              <span className="flex items-center gap-2 text-danger">
-                <AlertTriangle className="h-3 w-3" /> {error}
-              </span>
-            )}
+            {loading
+              ? <span className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Loading recent theft data…</span>
+              : <span className="flex items-center gap-2 text-danger"><AlertTriangle className="h-3 w-3" /> {error}</span>}
           </div>
         </div>
       )}
 
-      {/* Summary card — desktop side, mobile bottom */}
       <aside className="absolute bottom-3 left-3 right-3 z-[900] sm:bottom-4 sm:right-auto sm:left-4 sm:top-28 sm:w-80">
         {showHeatmap && (
           <div className="mb-2 hidden rounded-xl border border-border bg-card/85 p-2.5 shadow-lg backdrop-blur sm:block">
-            <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-              Theft density
-            </div>
+            <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">Theft density</div>
             <div className="h-2 w-full rounded-full" style={{ background: "linear-gradient(90deg,#16a34a,#eab308,#f97316,#dc2626)" }} />
-            <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
-              <span>Safer</span><span>Higher risk</span>
-            </div>
+            <div className="mt-1 flex justify-between text-[10px] text-muted-foreground"><span>Safer</span><span>Higher risk</span></div>
           </div>
         )}
         <div className="rounded-2xl border border-border bg-card/90 p-4 shadow-2xl backdrop-blur-xl">
           <div className="mb-3 flex items-center justify-between">
             <div>
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                Within {radius} km of
-              </div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Within {radius} km of</div>
               <div className="text-sm font-semibold">{searchLabel ?? "Downtown Toronto"}</div>
             </div>
             <MapPin className="h-4 w-4 text-primary" />
           </div>
-
           <div className="grid grid-cols-3 gap-2">
             <Stat label="Thefts" value={loading ? "—" : stats.count.toLocaleString()} accent />
             <Stat label="Last 30d" value={loading ? "—" : String(stats.last30)} />
-            <Stat
-              label="Trend"
-              value={
-                loading || stats.last30 === 0 ? "—" : `${stats.trend > 0 ? "+" : ""}${stats.trend}%`
-              }
+            <Stat label="Trend"
+              value={loading || stats.last30 === 0 ? "—" : `${stats.trend > 0 ? "+" : ""}${stats.trend}%`}
               tone={stats.trend > 0 ? "danger" : stats.trend < 0 ? "good" : "muted"}
-              icon={<TrendingUp className="h-3 w-3" />}
-            />
+              icon={<TrendingUp className="h-3 w-3" />} />
           </div>
-
           {stats.recent && (
             <div className="mt-3 rounded-xl border border-border bg-background/40 p-3">
               <div className="mb-1 flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -323,142 +228,89 @@ function Index() {
               <div className="text-sm font-medium">{stats.recent.offence}</div>
               <div className="text-xs text-muted-foreground">{stats.recent.neighbourhood}</div>
               <div className="text-[11px] text-muted-foreground">
-                {new Date(stats.recent.occDate).toLocaleDateString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}{" "}
-                · {stats.recent.locationType}
+                {new Date(stats.recent.occDate).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })} · {stats.recent.locationType}
               </div>
             </div>
           )}
-
           {reportsInRadius.length > 0 && (
             <div className="mt-3 flex items-center gap-2 rounded-xl border border-border bg-background/40 p-2.5 text-xs">
               <Users className="h-3.5 w-3.5 text-accent" />
-              <span className="text-muted-foreground">
-                {reportsInRadius.length} community report
-                {reportsInRadius.length === 1 ? "" : "s"} nearby
-              </span>
+              <span className="text-muted-foreground">{reportsInRadius.length} community report{reportsInRadius.length === 1 ? "" : "s"} nearby</span>
             </div>
           )}
-
           <div className="mt-3 grid grid-cols-2 gap-2">
             {!loading && inRadius.length > 0 ? (
-              <button
-                onClick={() => {
-                  setSelected(inRadius[0]);
-                  setDrawerOpen(true);
-                }}
-                className="rounded-xl border border-border bg-muted py-2 text-xs font-medium text-foreground transition hover:bg-muted/70"
-              >
+              <button onClick={() => { setSelected(inRadius[0]); setDrawerOpen(true); }}
+                className="rounded-xl border border-border bg-muted py-2 text-xs font-medium text-foreground transition hover:bg-muted/70">
                 View {inRadius.length}
               </button>
             ) : (
-              <div className="rounded-xl border border-border bg-muted/40 py-2 text-center text-xs text-muted-foreground">
-                No incidents
-              </div>
+              <div className="rounded-xl border border-border bg-muted/40 py-2 text-center text-xs text-muted-foreground">No incidents</div>
             )}
-            <button
-              onClick={() => setReportOpen(true)}
-              className="flex items-center justify-center gap-1 rounded-xl bg-accent py-2 text-xs font-medium text-accent-foreground transition hover:opacity-90"
-            >
+            <button onClick={() => setReportOpen(true)}
+              className="flex items-center justify-center gap-1 rounded-xl bg-accent py-2 text-xs font-medium text-accent-foreground transition hover:opacity-90">
               <Plus className="h-3.5 w-3.5" /> Report
             </button>
           </div>
-
           <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">
-            Locations offset to nearest intersection. Source: Toronto Police Service Public Safety
-            Data Portal.
+            Locations offset to nearest intersection. Source: Toronto Police Service Public Safety Data Portal.
           </p>
         </div>
-
         {!loading && (
           <div className="mt-3">
-            <RiskPanel
-              risk={risk}
-              locationLabel={searchLabel ?? "Downtown Toronto"}
-              radiusKm={radius}
-              vehicleIdx={vehicleIdx}
-              onVehicleChange={setVehicleIdx}
-              onOpenClaim={() => setClaimOpen(true)}
-            />
+            <RiskPanel risk={risk} locationLabel={searchLabel ?? "Downtown Toronto"} radiusKm={radius}
+              vehicleIdx={vehicleIdx} onVehicleChange={setVehicleIdx} onOpenClaim={() => setClaimOpen(true)} />
           </div>
         )}
       </aside>
 
-      {claimOpen && (
-        <ClaimGuide
-          onClose={() => setClaimOpen(false)}
-          defaultVehicleIdx={vehicleIdx}
-          locationLabel={searchLabel ?? "Downtown Toronto"}
-        />
-      )}
+      {claimOpen && <ClaimGuide onClose={() => setClaimOpen(false)} defaultVehicleIdx={vehicleIdx} locationLabel={searchLabel ?? "Downtown Toronto"} />}
 
       {reportOpen && (
-        <ReportDialog
-          defaultLocation={center}
-          defaultLabel={searchLabel}
+        <ReportDialog defaultLocation={center} defaultLabel={searchLabel}
           onClose={() => setReportOpen(false)}
-          onSubmitted={(r) => {
-            handleReportAdded(r);
-            setReportOpen(false);
+          onSubmitted={(r) => { handleReportAdded(r); setReportOpen(false); }} />
+      )}
+
+      {/* AuthPanel — MUST be inside Index, not inside ReportDialog */}
+      {authOpen && (
+        <AuthPanel
+          onClose={() => setAuthOpen(false)}
+          onLocationSet={(lat, lng, label) => {
+            setCenter([lat, lng]);
+            setPin([lat, lng]);
+            setSearchLabel(label);
+            setAuthOpen(false);
           }}
         />
       )}
 
-      {/* Detail drawer */}
       {drawerOpen && (
         <>
-          <div
-            className="absolute inset-0 z-[1100] bg-black/40 backdrop-blur-sm"
-            onClick={() => setDrawerOpen(false)}
-          />
+          <div className="absolute inset-0 z-[1100] bg-black/40 backdrop-blur-sm" onClick={() => setDrawerOpen(false)} />
           <div className="absolute bottom-0 left-0 right-0 z-[1200] max-h-[75vh] overflow-y-auto rounded-t-3xl border-t border-border bg-card p-4 shadow-2xl sm:bottom-4 sm:left-auto sm:right-4 sm:top-28 sm:max-h-none sm:w-96 sm:rounded-2xl sm:border">
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Incidents within {radius} km
-                </div>
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Incidents within {radius} km</div>
                 <div className="text-base font-semibold">{inRadius.length} reports</div>
               </div>
-              <button
-                onClick={() => setDrawerOpen(false)}
-                className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label="Close"
-              >
+              <button onClick={() => setDrawerOpen(false)} className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Close">
                 <X className="h-4 w-4" />
               </button>
             </div>
             <ul className="space-y-2">
               {inRadius.slice(0, 100).map((t) => (
-                <li
-                  key={t.id}
-                  className={`cursor-pointer rounded-xl border p-3 transition ${
-                    selected?.id === t.id
-                      ? "border-primary bg-primary/10"
-                      : "border-border bg-background/40 hover:border-primary/50"
-                  }`}
-                  onClick={() => {
-                    setSelected(t);
-                    setCenter([t.lat, t.lng]);
-                  }}
-                >
+                <li key={t.id}
+                  className={`cursor-pointer rounded-xl border p-3 transition ${selected?.id === t.id ? "border-primary bg-primary/10" : "border-border bg-background/40 hover:border-primary/50"}`}
+                  onClick={() => { setSelected(t); setCenter([t.lat, t.lng]); }}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium">{t.offence}</div>
-                      <div className="truncate text-xs text-muted-foreground">
-                        {t.neighbourhood}
-                      </div>
-                      <div className="truncate text-[11px] text-muted-foreground">
-                        {t.locationType}
-                      </div>
+                      <div className="truncate text-xs text-muted-foreground">{t.neighbourhood}</div>
+                      <div className="truncate text-[11px] text-muted-foreground">{t.locationType}</div>
                     </div>
                     <div className="shrink-0 text-[11px] text-muted-foreground">
-                      {new Date(t.occDate).toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                      })}
+                      {new Date(t.occDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                     </div>
                   </div>
                 </li>
@@ -476,220 +328,86 @@ function Index() {
   );
 }
 
-function Stat({
-  label,
-  value,
-  accent,
-  tone,
-  icon,
-}: {
-  label: string;
-  value: string;
-  accent?: boolean;
-  tone?: "danger" | "good" | "muted";
-  icon?: React.ReactNode;
-}) {
-  const color =
-    tone === "danger"
-      ? "text-danger"
-      : tone === "good"
-      ? "text-accent"
-      : accent
-      ? "text-primary"
-      : "text-foreground";
+function Stat({ label, value, accent, tone, icon }: { label: string; value: string; accent?: boolean; tone?: "danger" | "good" | "muted"; icon?: React.ReactNode }) {
+  const color = tone === "danger" ? "text-danger" : tone === "good" ? "text-accent" : accent ? "text-primary" : "text-foreground";
   return (
     <div className="rounded-xl border border-border bg-background/40 p-2.5">
       <div className="text-[9px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className={`mt-0.5 flex items-center gap-1 text-lg font-semibold ${color}`}>
-        {icon}
-        {value}
-      </div>
+      <div className={`mt-0.5 flex items-center gap-1 text-lg font-semibold ${color}`}>{icon}{value}</div>
     </div>
   );
 }
 
 function MapSkeleton() {
-  return (
-    <div className="flex h-full w-full items-center justify-center bg-[oklch(0.18_0.02_260)]">
-      <Loader2 className="h-6 w-6 animate-spin text-primary" />
-    </div>
-  );
+  return <div className="flex h-full w-full items-center justify-center bg-[oklch(0.18_0.02_260)]"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 }
 
-const OFFENCE_OPTIONS = [
-  "Theft Of Motor Vehicle",
-  "Attempted Theft",
-  "Theft From Motor Vehicle",
-  "Vehicle Vandalism",
-];
+const OFFENCE_OPTIONS = ["Theft Of Motor Vehicle", "Attempted Theft", "Theft From Motor Vehicle", "Vehicle Vandalism"];
+const LOCATION_OPTIONS = ["Street / Road", "Parking Lot", "Driveway", "Apartment Garage", "House (Garage)", "Other"];
 
-const LOCATION_OPTIONS = [
-  "Street / Road",
-  "Parking Lot",
-  "Driveway",
-  "Apartment Garage",
-  "House (Garage)",
-  "Other",
-];
-
-function ReportDialog({
-  defaultLocation,
-  defaultLabel,
-  onClose,
-  onSubmitted,
-}: {
-  defaultLocation: [number, number];
-  defaultLabel: string | null;
-  onClose: () => void;
-  onSubmitted: (r: UserReport) => void;
+function ReportDialog({ defaultLocation, defaultLabel, onClose, onSubmitted }: {
+  defaultLocation: [number, number]; defaultLabel: string | null;
+  onClose: () => void; onSubmitted: (r: UserReport) => void;
 }) {
   const [offence, setOffence] = useState(OFFENCE_OPTIONS[0]);
   const [locationType, setLocationType] = useState(LOCATION_OPTIONS[0]);
   const [description, setDescription] = useState("");
-  const [when, setWhen] = useState(() => {
-    const d = new Date();
-    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-    return d.toISOString().slice(0, 16);
-  });
+  const [when, setWhen] = useState(() => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); });
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setSubmitting(true);
-    setErr(null);
+    setSubmitting(true); setErr(null);
     try {
-      const r = await submitUserReport({
-        lat: defaultLocation[0],
-        lng: defaultLocation[1],
-        offence,
-        locationType,
-        description: description.trim() || undefined,
-        occurredAt: new Date(when),
-      });
+      const r = await submitUserReport({ lat: defaultLocation[0], lng: defaultLocation[1], offence, locationType, description: description.trim() || undefined, occurredAt: new Date(when) });
       onSubmitted(r);
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to submit report.");
-    } finally {
-      setSubmitting(false);
-    }
+    } catch (e: any) { setErr(e?.message ?? "Failed to submit report."); }
+    finally { setSubmitting(false); }
   }
 
   return (
     <>
-      <div
-        className="absolute inset-0 z-[1300] bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 z-[1300] bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="absolute left-1/2 top-1/2 z-[1400] w-[92%] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-5 shadow-2xl">
         <div className="mb-4 flex items-start justify-between">
           <div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              Community report
-            </div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Community report</div>
             <h2 className="text-base font-semibold">Report a vehicle theft</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Pinned to {defaultLabel ?? "current map center"}. Move the map to relocate.
-            </p>
+            <p className="mt-1 text-xs text-muted-foreground">Pinned to {defaultLabel ?? "current map center"}. Move the map to relocate.</p>
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <button onClick={onClose} className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Close"><X className="h-4 w-4" /></button>
         </div>
-
         <form onSubmit={handleSubmit} className="space-y-3">
           <Field label="What happened?">
-            <select
-              value={offence}
-              onChange={(e) => setOffence(e.target.value)}
-              className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm focus:border-ring focus:outline-none"
-            >
-              {OFFENCE_OPTIONS.map((o) => (
-                <option key={o} value={o}>{o}</option>
-              ))}
+            <select value={offence} onChange={(e) => setOffence(e.target.value)} className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm focus:border-ring focus:outline-none">
+              {OFFENCE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
           </Field>
-
           <Field label="Where">
-            <select
-              value={locationType}
-              onChange={(e) => setLocationType(e.target.value)}
-              className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm focus:border-ring focus:outline-none"
-            >
-              {LOCATION_OPTIONS.map((o) => (
-                <option key={o} value={o}>{o}</option>
-              ))}
+            <select value={locationType} onChange={(e) => setLocationType(e.target.value)} className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm focus:border-ring focus:outline-none">
+              {LOCATION_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
           </Field>
-
           <Field label="When">
-            <input
-              type="datetime-local"
-              value={when}
-              onChange={(e) => setWhen(e.target.value)}
-              className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm focus:border-ring focus:outline-none"
-            />
+            <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm focus:border-ring focus:outline-none" />
           </Field>
-
           <Field label="Details (optional)">
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value.slice(0, 500))}
-              rows={3}
+            <textarea value={description} onChange={(e) => setDescription(e.target.value.slice(0, 500))} rows={3}
               placeholder="Make/model, time of night, anything useful for neighbours…"
-              className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm focus:border-ring focus:outline-none"
-            />
-            <div className="mt-1 text-right text-[10px] text-muted-foreground">
-              {description.length}/500
-            </div>
+              className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm focus:border-ring focus:outline-none" />
+            <div className="mt-1 text-right text-[10px] text-muted-foreground">{description.length}/500</div>
           </Field>
-
-          {err && (
-            <div className="rounded-lg border border-danger/30 bg-danger/10 p-2 text-xs text-danger">
-              {err}
-            </div>
-          )}
-
+          {err && <div className="rounded-lg border border-danger/30 bg-danger/10 p-2 text-xs text-danger">{err}</div>}
           <div className="flex items-center gap-2 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-xl border border-border bg-muted py-2.5 text-sm font-medium hover:bg-muted/70"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
-            >
-              {submitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <>
-                  <Send className="h-3.5 w-3.5" /> Submit
-                </>
-              )}
+            <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-border bg-muted py-2.5 text-sm font-medium hover:bg-muted/70">Cancel</button>
+            <button type="submit" disabled={submitting}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-50">
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Send className="h-3.5 w-3.5" /> Submit</>}
             </button>
           </div>
-{authOpen && (
-  <AuthPanel
-    onClose={() => setAuthOpen(false)}
-    onLocationSet={(lat, lng, label) => {
-      setCenter([lat, lng]);
-      setPin([lat, lng]);
-      setSearchLabel(label);
-      setAuthOpen(false);
-    }}
-  />
-)}
           <p className="text-[10px] leading-relaxed text-muted-foreground">
-            Reports are public and unverified. Always file an official report with Toronto Police
-            (call 416-808-2222 or visit torontopolice.on.ca).
+            Reports are public and unverified. Always file an official report with Toronto Police (call 416-808-2222 or visit torontopolice.on.ca).
           </p>
         </form>
       </div>
@@ -700,9 +418,7 @@ function ReportDialog({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-        {label}
-      </div>
+      <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
       {children}
     </label>
   );
