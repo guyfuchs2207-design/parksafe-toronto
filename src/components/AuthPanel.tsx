@@ -1,16 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useId } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { getProfile, upsertProfile, signUpWithEmail, signInWithEmail, signOut, Profile } from "@/lib/profile";
 import { geocode } from "@/lib/thefts";
+import { VEHICLE_CATALOG, VEHICLE_MAKES } from "@/lib/risk";
 import { Shield, X, Loader2, LogOut, Car, MapPin, Bell } from "lucide-react";
 
-const MAKES = ["Honda","Toyota","Ford","Chevrolet","BMW","Mercedes","Lexus","Hyundai","Kia","Nissan","Jeep","RAM","Other"];
-const COLOURS = ["Black","White","Silver","Grey","Blue","Red","Green","Brown","Other"];
+const COLOURS = ["Black", "White", "Silver", "Grey", "Blue", "Red", "Green", "Brown", "Yellow", "Orange"];
 
 export default function AuthPanel({ onClose, onLocationSet }: {
   onClose: () => void;
   onLocationSet?: (lat: number, lng: number, label: string) => void;
+  onVehicleChange?: (v: { make: string; model: string; colour: string }) => void;
 }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -31,6 +32,13 @@ export default function AuthPanel({ onClose, onLocationSet }: {
   const [alerts, setAlerts] = useState(true);
   const [radius, setRadius] = useState(2);
   const [geocoding, setGeocoding] = useState(false);
+  const makesListId = useId();
+  const modelsListId = useId();
+  const coloursListId = useId();
+
+  const modelOptions = make && VEHICLE_CATALOG[make]
+    ? VEHICLE_CATALOG[make]
+    : Object.values(VEHICLE_CATALOG).flat();
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -53,6 +61,15 @@ export default function AuthPanel({ onClose, onLocationSet }: {
       setAddress(p.homeAddress ?? "");
       setAlerts(p.alertsEnabled);
       setRadius(p.alertRadiusKm);
+      // Sync vehicle into risk score immediately on load.
+      onVehicleChange?.({
+        make: p.vehicleMake ?? "",
+        model: p.vehicleModel ?? "",
+        colour: p.vehicleColour ?? "",
+      });
+      if (p.homeLat != null && p.homeLng != null) {
+        onLocationSet?.(p.homeLat, p.homeLng, (p.homeAddress ?? "Home").split(",").slice(0, 2).join(","));
+      }
     }
   }
 
@@ -108,6 +125,8 @@ export default function AuthPanel({ onClose, onLocationSet }: {
         alertsEnabled: alerts,
         alertRadiusKm: radius,
       });
+      // Push saved vehicle into the risk score panel.
+      onVehicleChange?.({ make, model, colour });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (e: any) {
@@ -185,16 +204,28 @@ export default function AuthPanel({ onClose, onLocationSet }: {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <Field label="Make">
-                  <select value={make} onChange={e => setMake(e.target.value)}
-                    className="w-full rounded-lg border border-border bg-input px-2 py-2 text-sm focus:outline-none">
-                    <option value="">Select…</option>
-                    {MAKES.map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
+                  <input
+                    list={makesListId}
+                    value={make}
+                    onChange={e => { setMake(e.target.value); onVehicleChange?.({ make: e.target.value, model, colour }); }}
+                    placeholder="Type or pick…"
+                    autoComplete="off"
+                    className="w-full rounded-lg border border-border bg-input px-2 py-2 text-sm focus:outline-none" />
+                  <datalist id={makesListId}>
+                    {VEHICLE_MAKES.map(m => <option key={m} value={m} />)}
+                  </datalist>
                 </Field>
                 <Field label="Model">
-                  <input value={model} onChange={e => setModel(e.target.value)}
-                    placeholder="e.g. Civic"
+                  <input
+                    list={modelsListId}
+                    value={model}
+                    onChange={e => { setModel(e.target.value); onVehicleChange?.({ make, model: e.target.value, colour }); }}
+                    placeholder="e.g. CR-V"
+                    autoComplete="off"
                     className="w-full rounded-lg border border-border bg-input px-2 py-2 text-sm focus:outline-none" />
+                  <datalist id={modelsListId}>
+                    {modelOptions.map(m => <option key={m} value={m} />)}
+                  </datalist>
                 </Field>
                 <Field label="Year">
                   <input value={year} onChange={e => setYear(e.target.value)}
@@ -202,11 +233,16 @@ export default function AuthPanel({ onClose, onLocationSet }: {
                     className="w-full rounded-lg border border-border bg-input px-2 py-2 text-sm focus:outline-none" />
                 </Field>
                 <Field label="Colour">
-                  <select value={colour} onChange={e => setColour(e.target.value)}
-                    className="w-full rounded-lg border border-border bg-input px-2 py-2 text-sm focus:outline-none">
-                    <option value="">Select…</option>
-                    {COLOURS.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                  <input
+                    list={coloursListId}
+                    value={colour}
+                    onChange={e => { setColour(e.target.value); onVehicleChange?.({ make, model, colour: e.target.value }); }}
+                    placeholder="e.g. Black"
+                    autoComplete="off"
+                    className="w-full rounded-lg border border-border bg-input px-2 py-2 text-sm focus:outline-none" />
+                  <datalist id={coloursListId}>
+                    {COLOURS.map(c => <option key={c} value={c} />)}
+                  </datalist>
                 </Field>
               </div>
             </div>
