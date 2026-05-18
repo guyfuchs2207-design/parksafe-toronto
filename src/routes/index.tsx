@@ -281,11 +281,11 @@ function Index() {
       {authOpen && (
         <AuthPanel
           onClose={() => setAuthOpen(false)}
+          onVehicleChange={setVehicle}
           onLocationSet={(lat, lng, label) => {
             setCenter([lat, lng]);
             setPin([lat, lng]);
             setSearchLabel(label);
-            setAuthOpen(false);
           }}
         />
       )}
