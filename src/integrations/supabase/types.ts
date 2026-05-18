@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      profiles: {
+        Row: {
+          alert_radius_km: number
+          alerts_enabled: boolean
+          created_at: string
+          email: string | null
+          home_address: string | null
+          home_lat: number | null
+          home_lng: number | null
+          id: string
+          updated_at: string
+          vehicle_colour: string | null
+          vehicle_make: string | null
+          vehicle_model: string | null
+          vehicle_year: number | null
+        }
+        Insert: {
+          alert_radius_km?: number
+          alerts_enabled?: boolean
+          created_at?: string
+          email?: string | null
+          home_address?: string | null
+          home_lat?: number | null
+          home_lng?: number | null
+          id: string
+          updated_at?: string
+          vehicle_colour?: string | null
+          vehicle_make?: string | null
+          vehicle_model?: string | null
+          vehicle_year?: number | null
+        }
+        Update: {
+          alert_radius_km?: number
+          alerts_enabled?: boolean
+          created_at?: string
+          email?: string | null
+          home_address?: string | null
+          home_lat?: number | null
+          home_lng?: number | null
+          id?: string
+          updated_at?: string
+          vehicle_colour?: string | null
+          vehicle_make?: string | null
+          vehicle_model?: string | null
+          vehicle_year?: number | null
+        }
+        Relationships: []
+      }
       user_reports: {
         Row: {
           created_at: string
