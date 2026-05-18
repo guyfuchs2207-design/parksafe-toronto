@@ -8,7 +8,7 @@ import { Shield, X, Loader2, LogOut, Car, MapPin, Bell } from "lucide-react";
 
 const COLOURS = ["Black", "White", "Silver", "Grey", "Blue", "Red", "Green", "Brown", "Yellow", "Orange"];
 
-export default function AuthPanel({ onClose, onLocationSet }: {
+export default function AuthPanel({ onClose, onLocationSet, onVehicleChange }: {
   onClose: () => void;
   onLocationSet?: (lat: number, lng: number, label: string) => void;
   onVehicleChange?: (v: { make: string; model: string; colour: string }) => void;
