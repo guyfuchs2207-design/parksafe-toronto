@@ -71,21 +71,24 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+      { title: "ParkSafe Toronto" },
+      { name: "description", content: "Visualize nearby vehicle theft incidents in Toronto" },
+      { name: "author", content: "ParkSafe Toronto" },
+      { name: "theme-color", content: "#0b1220" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      { name: "apple-mobile-web-app-title", content: "ParkSafe" },
+      { property: "og:title", content: "ParkSafe Toronto" },
+      { property: "og:description", content: "Visualize nearby vehicle theft incidents in Toronto" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
+      { rel: "stylesheet", href: appCss },
+      { rel: "manifest", href: "/manifest.json" },
+      { rel: "apple-touch-icon", href: "/icon-192.png" },
+      { rel: "icon", type: "image/png", href: "/icon-192.png" },
     ],
   }),
   shellComponent: RootShell,
@@ -113,7 +116,34 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <ServiceWorkerRegistrar />
       <Outlet />
     </QueryClientProvider>
   );
+}
+
+function ServiceWorkerRegistrar() {
+  if (typeof window !== "undefined") {
+    queueMicrotask(() => {
+      try {
+        const inIframe = window.self !== window.top;
+        const host = window.location.hostname;
+        const isPreview =
+          host.includes("lovableproject.com") ||
+          host.includes("lovable.app") && host.includes("id-preview--") ||
+          host === "localhost" ||
+          host === "127.0.0.1";
+        if (inIframe || isPreview) {
+          navigator.serviceWorker?.getRegistrations().then((rs) => rs.forEach((r) => r.unregister()));
+          return;
+        }
+        if ("serviceWorker" in navigator) {
+          navigator.serviceWorker.register("/sw.js").catch(() => {});
+        }
+      } catch {
+        // ignore
+      }
+    });
+  }
+  return null;
 }
