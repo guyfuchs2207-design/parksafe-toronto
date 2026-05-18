@@ -1,16 +1,31 @@
-import { useState } from "react";
-import { Share2, AlertCircle, Car, FileText, ChevronDown, ChevronUp } from "lucide-react";
+import { useId, useState } from "react";
+import { Share2, AlertCircle, Car, FileText, ChevronDown, ChevronUp, Palette } from "lucide-react";
 import type { RiskAssessment } from "@/lib/risk";
-import { buildPredictiveAlert, buildShareText, VEHICLE_RISK } from "@/lib/risk";
+import {
+  buildPredictiveAlert,
+  buildShareText,
+  VEHICLE_CATALOG,
+  VEHICLE_MAKES,
+  lookupVehicleMultiplier,
+  colourMultiplier,
+} from "@/lib/risk";
+
+export interface VehicleInput {
+  make: string;
+  model: string;
+  colour: string;
+}
 
 interface Props {
   risk: RiskAssessment;
   locationLabel: string;
   radiusKm: number;
-  vehicleIdx: number;
-  onVehicleChange: (idx: number) => void;
+  vehicle: VehicleInput;
+  onVehicleChange: (v: VehicleInput) => void;
   onOpenClaim: () => void;
 }
+
+const COLOURS = ["Black", "White", "Silver", "Grey", "Blue", "Red", "Green", "Brown", "Yellow", "Orange"];
 
 const LEVEL_STYLES: Record<RiskAssessment["level"], { bg: string; text: string; ring: string; label: string }> = {
   low: {
@@ -37,16 +52,28 @@ export default function RiskPanel({
   risk,
   locationLabel,
   radiusKm,
-  vehicleIdx,
+  vehicle,
   onVehicleChange,
   onOpenClaim,
 }: Props) {
   const [expanded, setExpanded] = useState(true);
-  const v = VEHICLE_RISK[vehicleIdx];
+  const makesListId = useId();
+  const modelsListId = useId();
+  const coloursListId = useId();
+
+  const vehMult = lookupVehicleMultiplier(vehicle.make, vehicle.model);
+  const colMult = colourMultiplier(vehicle.colour);
+  const combinedMult = vehMult * colMult;
   const vehicleLabel =
-    v.multiplier > 1 ? `${v.make} ${v.model}`.trim() : undefined;
-  const alertMsg = buildPredictiveAlert(risk, vehicleLabel);
+    vehicle.make || vehicle.model
+      ? `${vehicle.make} ${vehicle.model}`.trim()
+      : undefined;
+  const alertMsg = buildPredictiveAlert(risk, combinedMult > 1.1 ? vehicleLabel : undefined);
   const styles = LEVEL_STYLES[risk.level];
+
+  const modelOptions = vehicle.make && VEHICLE_CATALOG[vehicle.make]
+    ? VEHICLE_CATALOG[vehicle.make]
+    : Object.values(VEHICLE_CATALOG).flat();
 
   async function share() {
     const text = buildShareText(risk, locationLabel, radiusKm);
@@ -101,29 +128,64 @@ export default function RiskPanel({
             </div>
           )}
 
-          <label className="mt-3 block">
-            <div className="mb-1 flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+          <div className="mt-3 space-y-2">
+            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
               <Car className="h-3 w-3" /> Your vehicle
             </div>
-            <select
-              value={vehicleIdx}
-              onChange={(e) => onVehicleChange(Number(e.target.value))}
-              className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm focus:border-ring focus:outline-none"
-            >
-              {VEHICLE_RISK.map((veh, i) => (
-                <option key={i} value={i}>
-                  {veh.model ? `${veh.make} ${veh.model}` : veh.make}
-                  {veh.multiplier > 1 ? `  · ${veh.multiplier.toFixed(1)}× targeted` : ""}
-                </option>
-              ))}
-            </select>
-            {v.multiplier > 1 && (
-              <p className="mt-1.5 text-[11px] text-muted-foreground">
-                {v.make} {v.model} is among the most-stolen vehicles in the GTA. Score is adjusted{" "}
-                <span className="font-medium text-foreground">{v.multiplier.toFixed(1)}×</span>.
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                list={makesListId}
+                value={vehicle.make}
+                onChange={(e) => onVehicleChange({ ...vehicle, make: e.target.value })}
+                placeholder="Make (e.g. Honda)"
+                autoComplete="off"
+                className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm focus:border-ring focus:outline-none"
+              />
+              <datalist id={makesListId}>
+                {VEHICLE_MAKES.map((m) => <option key={m} value={m} />)}
+              </datalist>
+              <input
+                list={modelsListId}
+                value={vehicle.model}
+                onChange={(e) => onVehicleChange({ ...vehicle, model: e.target.value })}
+                placeholder="Model (e.g. CR-V)"
+                autoComplete="off"
+                className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm focus:border-ring focus:outline-none"
+              />
+              <datalist id={modelsListId}>
+                {modelOptions.map((m) => <option key={m} value={m} />)}
+              </datalist>
+            </div>
+            <div className="relative">
+              <Palette className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <input
+                list={coloursListId}
+                value={vehicle.colour}
+                onChange={(e) => onVehicleChange({ ...vehicle, colour: e.target.value })}
+                placeholder="Colour (e.g. Black)"
+                autoComplete="off"
+                className="w-full rounded-lg border border-border bg-input px-3 py-2 pl-8 text-sm focus:border-ring focus:outline-none"
+              />
+              <datalist id={coloursListId}>
+                {COLOURS.map((c) => <option key={c} value={c} />)}
+              </datalist>
+            </div>
+            {(combinedMult > 1.02 || combinedMult < 0.98) && (
+              <p className="text-[11px] text-muted-foreground">
+                {vehMult > 1.05 && (
+                  <>Your {vehicle.make} {vehicle.model} is on the GTA high-theft list. </>
+                )}
+                {colMult > 1.02 && (
+                  <>{vehicle.colour} vehicles are stolen more often. </>
+                )}
+                {colMult < 0.98 && (
+                  <>{vehicle.colour} vehicles are stolen less often. </>
+                )}
+                Score adjusted{" "}
+                <span className="font-medium text-foreground">{combinedMult.toFixed(2)}×</span>.
               </p>
             )}
-          </label>
+          </div>
 
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button
