@@ -7,6 +7,7 @@ import { fetchUserReports, submitUserReport, type UserReport } from "@/lib/repor
 import { assessRisk, lookupVehicleMultiplier, colourMultiplier } from "@/lib/risk";
 import RiskPanel, { type VehicleInput } from "@/components/RiskPanel";
 import ClaimGuide from "@/components/ClaimGuide";
+import { getProfile } from "@/lib/profile";
 
 const TheftMap = lazy(() => import("@/components/TheftMap"));
 
@@ -54,6 +55,20 @@ function Index() {
       setThefts(t);
       setUserReports(r);
     }).finally(() => setLoading(false));
+    // Seed vehicle + home from saved profile if user is already signed in.
+    getProfile().then((p) => {
+      if (!p) return;
+      setVehicle({
+        make: p.vehicleMake ?? "",
+        model: p.vehicleModel ?? "",
+        colour: p.vehicleColour ?? "",
+      });
+      if (p.homeLat != null && p.homeLng != null) {
+        setCenter([p.homeLat, p.homeLng]);
+        setPin([p.homeLat, p.homeLng]);
+        setSearchLabel((p.homeAddress ?? "Home").split(",").slice(0, 2).join(","));
+      }
+    }).catch(() => {});
   }, []);
 
   const inRadius = useMemo(
