@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { Search, MapPin, AlertTriangle, TrendingUp, Loader2, Shield, X, Plus, Send, Users, Flame, LocateFixed } from "lucide-react";
 import { fetchRecentThefts, geocode, distanceKm, type Theft } from "@/lib/thefts";
 import { fetchUserReports, submitUserReport, type UserReport } from "@/lib/reports";
-import { assessRisk, VEHICLE_RISK } from "@/lib/risk";
-import RiskPanel from "@/components/RiskPanel";
+import { assessRisk, lookupVehicleMultiplier, colourMultiplier } from "@/lib/risk";
+import RiskPanel, { type VehicleInput } from "@/components/RiskPanel";
 import ClaimGuide from "@/components/ClaimGuide";
 
 const TheftMap = lazy(() => import("@/components/TheftMap"));
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/")({
 
 const TORONTO: [number, number] = [43.6532, -79.3832];
 const RADII = [1, 3, 5] as const;
-const VEHICLE_DEFAULT_IDX = VEHICLE_RISK.length - 1;
+const EMPTY_VEHICLE: VehicleInput = { make: "", model: "", colour: "" };
 
 function Index() {
   const [mounted, setMounted] = useState(false);
@@ -39,7 +39,7 @@ function Index() {
   const [selected, setSelected] = useState<Theft | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
-  const [vehicleIdx, setVehicleIdx] = useState(VEHICLE_DEFAULT_IDX);
+  const [vehicle, setVehicle] = useState<VehicleInput>(EMPTY_VEHICLE);
   const [claimOpen, setClaimOpen] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [locating, setLocating] = useState(false);
@@ -76,9 +76,14 @@ function Index() {
     return { count, recent, last30, trend };
   }, [inRadius]);
 
+  const vehicleMultiplier = useMemo(
+    () => lookupVehicleMultiplier(vehicle.make, vehicle.model) * colourMultiplier(vehicle.colour),
+    [vehicle.make, vehicle.model, vehicle.colour]
+  );
+
   const risk = useMemo(
-    () => assessRisk(thefts, center, radius, VEHICLE_RISK[vehicleIdx].multiplier),
-    [thefts, center, radius, vehicleIdx]
+    () => assessRisk(thefts, center, radius, vehicleMultiplier),
+    [thefts, center, radius, vehicleMultiplier]
   );
 
   async function handleSearch(e: React.FormEvent) {
@@ -259,12 +264,12 @@ function Index() {
         {!loading && (
           <div className="mt-3">
             <RiskPanel risk={risk} locationLabel={searchLabel ?? "Downtown Toronto"} radiusKm={radius}
-              vehicleIdx={vehicleIdx} onVehicleChange={setVehicleIdx} onOpenClaim={() => setClaimOpen(true)} />
+              vehicle={vehicle} onVehicleChange={setVehicle} onOpenClaim={() => setClaimOpen(true)} />
           </div>
         )}
       </aside>
 
-      {claimOpen && <ClaimGuide onClose={() => setClaimOpen(false)} defaultVehicleIdx={vehicleIdx} locationLabel={searchLabel ?? "Downtown Toronto"} />}
+      {claimOpen && <ClaimGuide onClose={() => setClaimOpen(false)} defaultVehicle={vehicle} locationLabel={searchLabel ?? "Downtown Toronto"} />}
 
       {reportOpen && (
         <ReportDialog defaultLocation={center} defaultLabel={searchLabel}
