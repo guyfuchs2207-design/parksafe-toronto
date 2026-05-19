@@ -397,6 +397,45 @@ function MapSkeleton() {
   return <div className="flex h-full w-full items-center justify-center bg-[oklch(0.18_0.02_260)]"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 }
 
+type PwaState = "unsupported" | "preview" | "active" | "inactive";
+
+function PwaStatus() {
+  const [state, setState] = useState<PwaState>("inactive");
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!("serviceWorker" in navigator)) { setState("unsupported"); return; }
+    let inIframe = false;
+    try { inIframe = window.self !== window.top; } catch { inIframe = true; }
+    const host = window.location.hostname;
+    const isPreview =
+      host.includes("lovableproject.com") ||
+      (host.includes("lovable.app") && host.includes("id-preview--")) ||
+      host === "localhost" ||
+      host === "127.0.0.1";
+    if (inIframe || isPreview) { setState("preview"); return; }
+    navigator.serviceWorker.getRegistration().then((reg) => {
+      setState(reg && reg.active ? "active" : "inactive");
+    }).catch(() => setState("inactive"));
+  }, []);
+
+  const meta: Record<PwaState, { dot: string; label: string; title: string }> = {
+    unsupported: { dot: "bg-muted-foreground", label: "PWA n/a", title: "Service workers are not supported in this browser." },
+    preview:     { dot: "bg-[oklch(0.75_0.18_75)]", label: "PWA preview", title: "PWA is disabled in the Lovable preview/iframe. Open the published URL on your phone to install and use offline." },
+    active:      { dot: "bg-[oklch(0.7_0.18_150)]", label: "PWA on", title: "Offline-ready. Service worker is active." },
+    inactive:    { dot: "bg-muted-foreground", label: "PWA off", title: "Service worker not registered yet. It activates on the published site." },
+  };
+  const m = meta[state];
+  return (
+    <span
+      title={m.title}
+      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-2 py-1 text-[10px] text-muted-foreground"
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${m.dot}`} />
+      {m.label}
+    </span>
+  );
+}
+
 const OFFENCE_OPTIONS = ["Theft Of Motor Vehicle", "Attempted Theft", "Theft From Motor Vehicle", "Vehicle Vandalism"];
 const LOCATION_OPTIONS = ["Street / Road", "Parking Lot", "Driveway", "Apartment Garage", "House (Garage)", "Other"];
 
