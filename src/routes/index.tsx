@@ -1,7 +1,7 @@
 import AuthPanel from "@/components/AuthPanel";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, lazy, Suspense } from "react";
-import { Search, MapPin, AlertTriangle, TrendingUp, Loader2, Shield, X, Plus, Send, Users, Flame, LocateFixed } from "lucide-react";
+import { Search, MapPin, AlertTriangle, TrendingUp, Loader2, Shield, X, Plus, Send, Users, Flame, LocateFixed, ChevronDown, ChevronUp } from "lucide-react";
 import { fetchRecentThefts, geocode, distanceKm, type Theft } from "@/lib/thefts";
 import { fetchUserReports, submitUserReport, type UserReport } from "@/lib/reports";
 import { assessRisk, lookupVehicleMultiplier, colourMultiplier } from "@/lib/risk";
@@ -45,6 +45,7 @@ function Index() {
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [locating, setLocating] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -181,6 +182,7 @@ function Index() {
                 className="rounded-xl border border-border bg-muted px-3 py-2 text-xs font-medium hover:bg-muted/70">
                 Account
               </button>
+            <PwaStatus />
             </div>
           </div>
 
@@ -230,6 +232,33 @@ function Index() {
       )}
 
       <aside className="absolute bottom-3 left-3 right-3 z-[900] sm:bottom-4 sm:right-auto sm:left-4 sm:top-28 sm:w-80">
+        {/* Mobile collapse handle — keeps the map visible */}
+        <button
+          type="button"
+          onClick={() => setMobilePanelOpen((v) => !v)}
+          className="mb-2 flex w-full items-center justify-between gap-2 rounded-2xl border border-border bg-card/90 px-3 py-2 shadow-lg backdrop-blur-xl sm:hidden"
+        >
+          <div className="flex min-w-0 items-center gap-2">
+            <span
+              className={`h-2 w-2 shrink-0 rounded-full ${
+                risk.level === "high"
+                  ? "bg-danger"
+                  : risk.level === "medium"
+                  ? "bg-[oklch(0.75_0.18_75)]"
+                  : "bg-[oklch(0.7_0.18_150)]"
+              }`}
+            />
+            <span className="truncate text-xs font-medium">
+              Risk {risk.score} · {loading ? "—" : stats.count} thefts · {radius} km
+            </span>
+          </div>
+          <span className="flex shrink-0 items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+            {mobilePanelOpen ? "Hide" : "Details"}
+            {mobilePanelOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+          </span>
+        </button>
+
+        <div className={`${mobilePanelOpen ? "" : "hidden"} sm:block`}>
         {showHeatmap && (
           <div className="mb-2 hidden rounded-xl border border-border bg-card/85 p-2.5 shadow-lg backdrop-blur sm:block">
             <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">Theft density</div>
@@ -295,6 +324,7 @@ function Index() {
               vehicle={vehicle} onVehicleChange={setVehicle} onOpenClaim={() => setClaimOpen(true)} />
           </div>
         )}
+        </div>
       </aside>
 
       {claimOpen && <ClaimGuide onClose={() => setClaimOpen(false)} defaultVehicle={vehicle} locationLabel={searchLabel ?? "Downtown Toronto"} />}
@@ -365,6 +395,45 @@ function Stat({ label, value, accent, tone, icon }: { label: string; value: stri
 
 function MapSkeleton() {
   return <div className="flex h-full w-full items-center justify-center bg-[oklch(0.18_0.02_260)]"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+}
+
+type PwaState = "unsupported" | "preview" | "active" | "inactive";
+
+function PwaStatus() {
+  const [state, setState] = useState<PwaState>("inactive");
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!("serviceWorker" in navigator)) { setState("unsupported"); return; }
+    let inIframe = false;
+    try { inIframe = window.self !== window.top; } catch { inIframe = true; }
+    const host = window.location.hostname;
+    const isPreview =
+      host.includes("lovableproject.com") ||
+      (host.includes("lovable.app") && host.includes("id-preview--")) ||
+      host === "localhost" ||
+      host === "127.0.0.1";
+    if (inIframe || isPreview) { setState("preview"); return; }
+    navigator.serviceWorker.getRegistration().then((reg) => {
+      setState(reg && reg.active ? "active" : "inactive");
+    }).catch(() => setState("inactive"));
+  }, []);
+
+  const meta: Record<PwaState, { dot: string; label: string; title: string }> = {
+    unsupported: { dot: "bg-muted-foreground", label: "PWA n/a", title: "Service workers are not supported in this browser." },
+    preview:     { dot: "bg-[oklch(0.75_0.18_75)]", label: "PWA preview", title: "PWA is disabled in the Lovable preview/iframe. Open the published URL on your phone to install and use offline." },
+    active:      { dot: "bg-[oklch(0.7_0.18_150)]", label: "PWA on", title: "Offline-ready. Service worker is active." },
+    inactive:    { dot: "bg-muted-foreground", label: "PWA off", title: "Service worker not registered yet. It activates on the published site." },
+  };
+  const m = meta[state];
+  return (
+    <span
+      title={m.title}
+      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-2 py-1 text-[10px] text-muted-foreground"
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${m.dot}`} />
+      {m.label}
+    </span>
+  );
 }
 
 const OFFENCE_OPTIONS = ["Theft Of Motor Vehicle", "Attempted Theft", "Theft From Motor Vehicle", "Vehicle Vandalism"];
