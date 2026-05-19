@@ -1,7 +1,7 @@
 import AuthPanel from "@/components/AuthPanel";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, lazy, Suspense } from "react";
-import { Search, MapPin, AlertTriangle, TrendingUp, Loader2, Shield, X, Plus, Send, Users, Flame, LocateFixed } from "lucide-react";
+import { Search, MapPin, AlertTriangle, TrendingUp, Loader2, Shield, X, Plus, Send, Users, Flame, LocateFixed, ChevronDown, ChevronUp } from "lucide-react";
 import { fetchRecentThefts, geocode, distanceKm, type Theft } from "@/lib/thefts";
 import { fetchUserReports, submitUserReport, type UserReport } from "@/lib/reports";
 import { assessRisk, lookupVehicleMultiplier, colourMultiplier } from "@/lib/risk";
@@ -45,6 +45,7 @@ function Index() {
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [locating, setLocating] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -181,6 +182,7 @@ function Index() {
                 className="rounded-xl border border-border bg-muted px-3 py-2 text-xs font-medium hover:bg-muted/70">
                 Account
               </button>
+            <PwaStatus />
             </div>
           </div>
 
@@ -230,6 +232,33 @@ function Index() {
       )}
 
       <aside className="absolute bottom-3 left-3 right-3 z-[900] sm:bottom-4 sm:right-auto sm:left-4 sm:top-28 sm:w-80">
+        {/* Mobile collapse handle — keeps the map visible */}
+        <button
+          type="button"
+          onClick={() => setMobilePanelOpen((v) => !v)}
+          className="mb-2 flex w-full items-center justify-between gap-2 rounded-2xl border border-border bg-card/90 px-3 py-2 shadow-lg backdrop-blur-xl sm:hidden"
+        >
+          <div className="flex min-w-0 items-center gap-2">
+            <span
+              className={`h-2 w-2 shrink-0 rounded-full ${
+                risk.level === "high"
+                  ? "bg-danger"
+                  : risk.level === "medium"
+                  ? "bg-[oklch(0.75_0.18_75)]"
+                  : "bg-[oklch(0.7_0.18_150)]"
+              }`}
+            />
+            <span className="truncate text-xs font-medium">
+              Risk {risk.score} · {loading ? "—" : stats.count} thefts · {radius} km
+            </span>
+          </div>
+          <span className="flex shrink-0 items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+            {mobilePanelOpen ? "Hide" : "Details"}
+            {mobilePanelOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+          </span>
+        </button>
+
+        <div className={`${mobilePanelOpen ? "" : "hidden"} sm:block`}>
         {showHeatmap && (
           <div className="mb-2 hidden rounded-xl border border-border bg-card/85 p-2.5 shadow-lg backdrop-blur sm:block">
             <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">Theft density</div>
@@ -295,6 +324,7 @@ function Index() {
               vehicle={vehicle} onVehicleChange={setVehicle} onOpenClaim={() => setClaimOpen(true)} />
           </div>
         )}
+        </div>
       </aside>
 
       {claimOpen && <ClaimGuide onClose={() => setClaimOpen(false)} defaultVehicle={vehicle} locationLabel={searchLabel ?? "Downtown Toronto"} />}
