@@ -49,6 +49,13 @@ function Index() {
 
   useEffect(() => {
     setMounted(true);
+    // Sync theme with device preference (light/dark)
+    const mql = window.matchMedia("(prefers-color-scheme: dark)");
+    const apply = () => {
+      document.documentElement.classList.toggle("dark", mql.matches);
+    };
+    apply();
+    mql.addEventListener("change", apply);
     Promise.all([
       fetchRecentThefts().catch((e) => { setError(e.message); return [] as Theft[]; }),
       fetchUserReports().catch(() => [] as UserReport[]),
@@ -65,6 +72,7 @@ function Index() {
         setSearchLabel((p.homeAddress ?? "Home").split(",").slice(0, 2).join(","));
       }
     }).catch(() => {});
+    return () => mql.removeEventListener("change", apply);
   }, []);
 
   const inRadius = useMemo(
@@ -124,7 +132,7 @@ function Index() {
   function handleReportAdded(r: UserReport) { setUserReports((prev) => [r, ...prev]); }
 
   return (
-    <div className="dark relative h-screen w-full overflow-hidden bg-background text-foreground">
+    <div className="relative h-screen w-full overflow-hidden bg-background text-foreground">
 
       {/* ── HEADER ── */}
       <header className="absolute left-0 right-0 top-0 z-[1000] px-3 pt-3 sm:px-4 sm:pt-4">

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, CircleMarker, Circle, Popup, useMap, Marker } from "react-leaflet";
 import L from "leaflet";
 import "leaflet.heat";
@@ -60,6 +60,16 @@ const pinIcon = L.divIcon({
 
 export default function TheftMap({ center, radiusKm, thefts, userReports, searchPin, onSelect, showHeatmap, allThefts }: Props) {
   const mapRef = useRef<L.Map | null>(null);
+  const [isDark, setIsDark] = useState(
+    typeof window !== "undefined" && document.documentElement.classList.contains("dark")
+  );
+  useEffect(() => {
+    const obs = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains("dark"));
+    });
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => obs.disconnect();
+  }, []);
 
   const markers = useMemo(
     () =>
@@ -135,8 +145,13 @@ export default function TheftMap({ center, radiusKm, thefts, userReports, search
       }}
     >
       <TileLayer
+        key={isDark ? "dark" : "light"}
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
-        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+        url={
+          isDark
+            ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+        }
       />
       <Recenter center={center} />
       {searchPin && <Marker position={searchPin} icon={pinIcon} />}
