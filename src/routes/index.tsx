@@ -280,8 +280,8 @@ function Index() {
             <TheftMap center={center} radiusKm={radius} thefts={inRadius}
               allThefts={thefts} showHeatmap={showHeatmap}
               userReports={reportsInRadius} searchPin={pin}
-              onSelect={(t) => { setSelected(t); setSelectedReport(null); setDrawerOpen(true); }}
-              onSelectReport={(r) => { setSelectedReport(r); setReportDetailOpen(true); }} />
+              onSelect={(t) => { setSelected(t); setSelectedReport(null); setReportDetailOpen(true); }}
+              onSelectReport={(r) => { setSelectedReport(r); setSelected(null); setReportDetailOpen(true); }} />
           </Suspense>
         ) : <MapSkeleton />}
       </div>
@@ -500,6 +500,68 @@ function Index() {
                 </li>
               )}
             </ul>
+          </div>
+        </>
+      )}
+
+      {/* ── INCIDENT / REPORT DETAIL CARD ── */}
+      {reportDetailOpen && (selected || selectedReport) && (
+        <>
+          <div className="absolute inset-0 z-[1100] bg-black/40 backdrop-blur-sm" onClick={() => setReportDetailOpen(false)} />
+          <div className="absolute bottom-0 left-0 right-0 z-[1200] max-h-[80vh] overflow-y-auto rounded-t-3xl border-t border-border bg-card p-4 shadow-2xl sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:max-h-none sm:w-[26rem] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {selectedReport ? "Community report" : "TPS incident"}
+                </div>
+                <h2 className="text-base font-semibold leading-tight">
+                  {selectedReport ? selectedReport.offence : selected!.offence}
+                </h2>
+              </div>
+              <button onClick={() => setReportDetailOpen(false)} className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Close">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {(() => {
+              const ts = selectedReport ? selectedReport.occurredAt : selected!.occDate;
+              const d = new Date(ts);
+              const fields: Array<[string, string]> = selectedReport
+                ? [
+                    ["Date", d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" })],
+                    ["Time", `${d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · ${timeOfDay(ts)}`],
+                    ["Neighbourhood", selectedReport.neighbourhood],
+                    ["Location type", selectedReport.locationType],
+                  ]
+                : [
+                    ["Date", d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" })],
+                    ["Time of day", timeOfDay(ts)],
+                    ["Neighbourhood", selected!.neighbourhood],
+                    ["Location type", selected!.locationType],
+                  ];
+              return (
+                <dl className="grid grid-cols-2 gap-2">
+                  {fields.map(([k, v]) => (
+                    <div key={k} className="rounded-xl border border-border bg-background/40 p-2.5">
+                      <dt className="text-[9px] uppercase tracking-wider text-muted-foreground">{k}</dt>
+                      <dd className="mt-0.5 text-sm font-medium">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+              );
+            })()}
+            {selectedReport && (
+              <>
+                {selectedReport.description && (
+                  <div className="mt-3 rounded-xl border border-border bg-background/40 p-3">
+                    <div className="mb-1 text-[9px] uppercase tracking-wider text-muted-foreground">Details</div>
+                    <p className="text-sm leading-relaxed">{selectedReport.description}</p>
+                  </div>
+                )}
+                <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1 text-[11px] text-muted-foreground">
+                  <Users className="h-3 w-3" /> Submitted anonymously
+                </div>
+              </>
+            )}
           </div>
         </>
       )}
