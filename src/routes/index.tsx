@@ -1,7 +1,8 @@
 import AuthPanel from "@/components/AuthPanel";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, lazy, Suspense } from "react";
-import { Search, MapPin, AlertTriangle, TrendingUp, Loader2, Shield, X, Plus, Send, Users, Flame, LocateFixed, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, MapPin, AlertTriangle, TrendingUp, Loader2, Shield, X, Plus, Send, Users, Flame, LocateFixed, ChevronDown, ChevronUp, Car, Clock } from "lucide-react";
+import { toast } from "sonner";
 import { fetchRecentThefts, geocode, distanceKm, type Theft } from "@/lib/thefts";
 import { fetchUserReports, submitUserReport, type UserReport } from "@/lib/reports";
 import { assessRisk, lookupVehicleMultiplier, colourMultiplier } from "@/lib/risk";
@@ -46,6 +47,16 @@ function Index() {
   const [locating, setLocating] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<UserReport | null>(null);
+  const [reportDetailOpen, setReportDetailOpen] = useState(false);
+  const [parkedAt, setParkedAt] = useState<{ lat: number; lng: number; label: string | null; at: number } | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("parksafe:parked");
+      if (raw) setParkedAt(JSON.parse(raw));
+    } catch {}
+  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -131,6 +142,48 @@ function Index() {
 
   function handleReportAdded(r: UserReport) { setUserReports((prev) => [r, ...prev]); }
 
+  function handleParkHere() {
+    if (!pin) return;
+    const entry = { lat: pin[0], lng: pin[1], label: searchLabel, at: Date.now() };
+    setParkedAt(entry);
+    try { localStorage.setItem("parksafe:parked", JSON.stringify(entry)); } catch {}
+    const tone = risk.level === "high" ? "🔴" : risk.level === "medium" ? "🟡" : "🟢";
+    toast(`${tone} Parked — risk ${risk.score}/100 (${risk.level})`, {
+      description: `${stats.count} thefts within ${radius} km of ${searchLabel ?? "this spot"} in the last year.`,
+      duration: 7000,
+    });
+    // Prompt for push notifications
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "default") {
+        setTimeout(() => {
+          toast("Get parking alerts?", {
+            description: "Enable push notifications for nearby theft alerts when you park.",
+            action: {
+              label: "Enable",
+              onClick: async () => {
+                try {
+                  const p = await Notification.requestPermission();
+                  if (p === "granted") toast.success("Alerts enabled");
+                  else toast.message("Notifications dismissed");
+                } catch {}
+              },
+            },
+            duration: 9000,
+          });
+        }, 800);
+      }
+    }
+  }
+
+  function timeOfDay(ts: number) {
+    const h = new Date(ts).getHours();
+    if (h < 6) return "Overnight";
+    if (h < 12) return "Morning";
+    if (h < 17) return "Afternoon";
+    if (h < 21) return "Evening";
+    return "Night";
+  }
+
   return (
     <div className="relative h-screen w-full overflow-hidden bg-background text-foreground">
 
@@ -152,8 +205,8 @@ function Index() {
               </div>
             </div>
 
-            {/* Search — grows to fill */}
-            <form onSubmit={handleSearch} className="flex flex-1 items-center gap-1.5 sm:gap-2">
+            {/* Search — desktop only; on mobile it lives in the bottom bar */}
+            <form onSubmit={handleSearch} className="hidden flex-1 items-center gap-1.5 sm:flex sm:gap-2">
               <div className="relative flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
@@ -171,6 +224,9 @@ function Index() {
                 {locating ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
               </button>
             </form>
+
+            {/* Mobile spacer — pushes account button right when search is hidden */}
+            <div className="flex-1 sm:hidden" />
 
             {/* Controls — hidden on mobile, shown on desktop */}
             <div className="hidden items-center gap-2 sm:flex">
@@ -224,10 +280,70 @@ function Index() {
             <TheftMap center={center} radiusKm={radius} thefts={inRadius}
               allThefts={thefts} showHeatmap={showHeatmap}
               userReports={reportsInRadius} searchPin={pin}
-              onSelect={(t) => { setSelected(t); setDrawerOpen(true); }} />
+              onSelect={(t) => { setSelected(t); setSelectedReport(null); setReportDetailOpen(true); }}
+              onSelectReport={(r) => { setSelectedReport(r); setSelected(null); setReportDetailOpen(true); }} />
           </Suspense>
         ) : <MapSkeleton />}
       </div>
+
+      {/* ── MOBILE BOTTOM SEARCH + PARK BUTTON ── */}
+      <div className="absolute bottom-0 left-0 right-0 z-[1000] px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:hidden">
+        <div className="rounded-2xl border border-border bg-card/90 p-2 shadow-2xl backdrop-blur-xl">
+          {pin && (
+            <button
+              type="button"
+              onClick={handleParkHere}
+              className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground shadow transition hover:opacity-90"
+            >
+              <Car className="h-4 w-4" /> I'm parking here
+            </button>
+          )}
+          <form onSubmit={handleSearch} className="flex items-center gap-1.5">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text" value={query} onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search address…"
+                className="w-full rounded-xl border border-border bg-input py-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+              />
+            </div>
+            <button type="submit" disabled={searching}
+              className="rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-50">
+              {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Go"}
+            </button>
+            <button type="button" onClick={handleLocate} disabled={locating} title="Use my location"
+              className="flex items-center justify-center rounded-xl border border-border bg-muted px-2.5 py-2 text-foreground transition hover:bg-muted/70 disabled:opacity-50">
+              {locating ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
+            </button>
+          </form>
+          {parkedAt && (
+            <div className="mt-1.5 flex items-center justify-between gap-2 px-1 text-[10px] text-muted-foreground">
+              <span className="flex items-center gap-1 truncate">
+                <Clock className="h-3 w-3" /> Parked {new Date(parkedAt.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · {parkedAt.label ?? "saved spot"}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── DESKTOP PARK BUTTON ── (floats over map, bottom-right) */}
+      {pin && (
+        <div className="absolute bottom-4 right-4 z-[900] hidden sm:block">
+          <button
+            type="button"
+            onClick={handleParkHere}
+            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-2xl transition hover:opacity-90"
+          >
+            <Car className="h-4 w-4" /> I'm parking here
+          </button>
+          {parkedAt && (
+            <div className="mt-1.5 rounded-lg border border-border bg-card/85 px-2.5 py-1 text-[10px] text-muted-foreground shadow backdrop-blur">
+              <Clock className="mr-1 inline h-3 w-3" />
+              Parked {new Date(parkedAt.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+            </div>
+          )}
+        </div>
+      )}
 
       {(loading || error) && (
         <div className="pointer-events-none absolute left-1/2 top-28 z-[900] -translate-x-1/2">
@@ -239,7 +355,7 @@ function Index() {
         </div>
       )}
 
-      <aside className="absolute bottom-3 left-3 right-3 z-[900] sm:bottom-4 sm:right-auto sm:left-4 sm:top-28 sm:w-80">
+      <aside className="absolute bottom-[calc(env(safe-area-inset-bottom)+8.5rem)] left-3 right-3 z-[900] sm:bottom-4 sm:right-auto sm:left-4 sm:top-28 sm:w-80">
         {/* Mobile collapse handle — keeps the map visible */}
         <button
           type="button"
@@ -384,6 +500,68 @@ function Index() {
                 </li>
               )}
             </ul>
+          </div>
+        </>
+      )}
+
+      {/* ── INCIDENT / REPORT DETAIL CARD ── */}
+      {reportDetailOpen && (selected || selectedReport) && (
+        <>
+          <div className="absolute inset-0 z-[1100] bg-black/40 backdrop-blur-sm" onClick={() => setReportDetailOpen(false)} />
+          <div className="absolute bottom-0 left-0 right-0 z-[1200] max-h-[80vh] overflow-y-auto rounded-t-3xl border-t border-border bg-card p-4 shadow-2xl sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:max-h-none sm:w-[26rem] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {selectedReport ? "Community report" : "TPS incident"}
+                </div>
+                <h2 className="text-base font-semibold leading-tight">
+                  {selectedReport ? selectedReport.offence : selected!.offence}
+                </h2>
+              </div>
+              <button onClick={() => setReportDetailOpen(false)} className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Close">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {(() => {
+              const ts = selectedReport ? selectedReport.occurredAt : selected!.occDate;
+              const d = new Date(ts);
+              const fields: Array<[string, string]> = selectedReport
+                ? [
+                    ["Date", d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" })],
+                    ["Time", `${d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · ${timeOfDay(ts)}`],
+                    ["Neighbourhood", selectedReport.neighbourhood],
+                    ["Location type", selectedReport.locationType],
+                  ]
+                : [
+                    ["Date", d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" })],
+                    ["Time of day", timeOfDay(ts)],
+                    ["Neighbourhood", selected!.neighbourhood],
+                    ["Location type", selected!.locationType],
+                  ];
+              return (
+                <dl className="grid grid-cols-2 gap-2">
+                  {fields.map(([k, v]) => (
+                    <div key={k} className="rounded-xl border border-border bg-background/40 p-2.5">
+                      <dt className="text-[9px] uppercase tracking-wider text-muted-foreground">{k}</dt>
+                      <dd className="mt-0.5 text-sm font-medium">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+              );
+            })()}
+            {selectedReport && (
+              <>
+                {selectedReport.description && (
+                  <div className="mt-3 rounded-xl border border-border bg-background/40 p-3">
+                    <div className="mb-1 text-[9px] uppercase tracking-wider text-muted-foreground">Details</div>
+                    <p className="text-sm leading-relaxed">{selectedReport.description}</p>
+                  </div>
+                )}
+                <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1 text-[11px] text-muted-foreground">
+                  <Users className="h-3 w-3" /> Submitted anonymously
+                </div>
+              </>
+            )}
           </div>
         </>
       )}
