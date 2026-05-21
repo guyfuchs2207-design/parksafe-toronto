@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MapContainer, TileLayer, CircleMarker, Circle, Popup, useMap, Marker } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Circle, useMap, Marker, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet.heat";
 import type { Theft } from "@/lib/thefts";
@@ -12,6 +12,7 @@ interface Props {
   userReports: UserReport[];
   searchPin: [number, number] | null;
   onSelect: (t: Theft) => void;
+  onSelectReport?: (r: UserReport) => void;
   showHeatmap: boolean;
   allThefts: Theft[];
 }
@@ -21,6 +22,14 @@ function Recenter({ center }: { center: [number, number] }) {
   useEffect(() => {
     map.flyTo(center, Math.max(map.getZoom(), 13), { duration: 0.8 });
   }, [center[0], center[1]]);
+  return null;
+}
+
+function ZoomTracker({ onZoom }: { onZoom: (z: number) => void }) {
+  const map = useMapEvents({
+    zoomend: () => onZoom(map.getZoom()),
+  });
+  useEffect(() => { onZoom(map.getZoom()); }, []);
   return null;
 }
 
@@ -58,8 +67,10 @@ const pinIcon = L.divIcon({
   iconAnchor: [9, 9],
 });
 
-export default function TheftMap({ center, radiusKm, thefts, userReports, searchPin, onSelect, showHeatmap, allThefts }: Props) {
+export default function TheftMap({ center, radiusKm, thefts, userReports, searchPin, onSelect, onSelectReport, showHeatmap, allThefts }: Props) {
   const mapRef = useRef<L.Map | null>(null);
+  const [zoom, setZoom] = useState(13);
+  const detailed = zoom > 14;
   const [isDark, setIsDark] = useState(
     typeof window !== "undefined" && document.documentElement.classList.contains("dark")
   );
@@ -73,32 +84,23 @@ export default function TheftMap({ center, radiusKm, thefts, userReports, search
 
   const markers = useMemo(
     () =>
-      (showHeatmap ? [] : thefts).map((t) => (
+      // When heatmap is on AND we're zoomed out, skip pins so they blend into the heatmap.
+      // When zoomed in past 14, always show distinct markers regardless of heatmap.
+      (showHeatmap && !detailed ? [] : thefts).map((t) => (
         <CircleMarker
           key={t.id}
           center={[t.lat, t.lng]}
-          radius={5}
+          radius={detailed ? 7 : 3}
           pathOptions={{
             color: "oklch(0.68 0.22 25)",
             fillColor: "oklch(0.68 0.22 25)",
-            fillOpacity: 0.7,
-            weight: 1,
+            fillOpacity: detailed ? 0.9 : 0.5,
+            weight: detailed ? 2 : 0.5,
           }}
           eventHandlers={{ click: () => onSelect(t) }}
-        >
-          <Popup>
-            <div style={{ minWidth: 180 }}>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>{t.offence}</div>
-              <div style={{ fontSize: 12, opacity: 0.8 }}>{t.neighbourhood}</div>
-              <div style={{ fontSize: 12, opacity: 0.8 }}>{t.locationType}</div>
-              <div style={{ fontSize: 11, marginTop: 6, opacity: 0.6 }}>
-                {new Date(t.occDate).toLocaleDateString()}
-              </div>
-            </div>
-          </Popup>
-        </CircleMarker>
+        />
       )),
-    [thefts, onSelect]
+    [thefts, onSelect, showHeatmap, detailed]
   );
 
   const reportMarkers = useMemo(
@@ -107,31 +109,17 @@ export default function TheftMap({ center, radiusKm, thefts, userReports, search
         <CircleMarker
           key={`r-${r.id}`}
           center={[r.lat, r.lng]}
-          radius={6}
+          radius={detailed ? 8 : 3}
           pathOptions={{
             color: "oklch(0.78 0.18 70)",
             fillColor: "oklch(0.78 0.18 70)",
-            fillOpacity: 0.85,
-            weight: 2,
+            fillOpacity: detailed ? 0.95 : 0.55,
+            weight: detailed ? 2 : 0.5,
           }}
-        >
-          <Popup>
-            <div style={{ minWidth: 200 }}>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                Community report · {r.offence}
-              </div>
-              <div style={{ fontSize: 12, opacity: 0.8 }}>{r.locationType}</div>
-              {r.description && (
-                <div style={{ fontSize: 12, marginTop: 6 }}>{r.description}</div>
-              )}
-              <div style={{ fontSize: 11, marginTop: 6, opacity: 0.6 }}>
-                {new Date(r.occurredAt).toLocaleString()}
-              </div>
-            </div>
-          </Popup>
-        </CircleMarker>
+          eventHandlers={{ click: () => onSelectReport?.(r) }}
+        />
       )),
-    [userReports]
+    [userReports, onSelectReport, detailed]
   );
 
   return (
@@ -154,6 +142,7 @@ export default function TheftMap({ center, radiusKm, thefts, userReports, search
         }
       />
       <Recenter center={center} />
+      <ZoomTracker onZoom={setZoom} />
       {searchPin && <Marker position={searchPin} icon={pinIcon} />}
       <HeatLayer points={allThefts} visible={showHeatmap} />
       <Circle
