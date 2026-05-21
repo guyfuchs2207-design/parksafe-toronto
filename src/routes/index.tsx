@@ -1,7 +1,7 @@
 import AuthPanel from "@/components/AuthPanel";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, lazy, Suspense } from "react";
-import { Search, MapPin, AlertTriangle, TrendingUp, Loader2, Shield, X, Plus, Send, Users, Flame, LocateFixed, ChevronDown, ChevronUp, Car, Bell, Clock } from "lucide-react";
+import { Search, MapPin, AlertTriangle, TrendingUp, Loader2, Shield, X, Plus, Send, Users, Flame, LocateFixed, ChevronDown, ChevronUp, Car, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { fetchRecentThefts, geocode, distanceKm, type Theft } from "@/lib/thefts";
 import { fetchUserReports, submitUserReport, type UserReport } from "@/lib/reports";
